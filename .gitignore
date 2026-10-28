@@ -1,0 +1,15 @@
+@"
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# STM32CubeIDE build output and workspace settings
+firmware/Debug/
+firmware/Release/
+.metadata/
+
+# Windows clutter
+Thumbs.db
+desktop.ini
+"@ | Set-Content -Encoding ascii .gitignore
