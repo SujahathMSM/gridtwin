@@ -101,7 +101,14 @@ static uint8_t           mb_buf[64];
 static volatile uint16_t mb_len;
 static volatile uint32_t mb_last_rx_us;
 static volatile uint8_t  mb_overflow;
+static volatile uint8_t  mb_frame_bad;      /* framing/parity/overrun error inside this frame */
 static uint32_t          mb_t35_us;
+
+/* Link-quality counters, reported in telemetry */
+static volatile uint32_t mb_noise_errors;   /* NE: glitch on a bit, byte usually still fine   */
+static volatile uint32_t mb_frame_errors;   /* FE/PE/ORE: byte corrupted or lost             */
+static uint32_t          mb_crc_errors;     /* complete frame arrived but CRC didn't match    */
+static uint32_t          mb_short_frames;   /* fragments under 4 bytes (frame cut too early)  */
 
 /* Laptop command line (LPUART1) */
 static uint8_t           cmd_rx_byte;
@@ -280,10 +287,13 @@ static void mb_exception(uint8_t fn, uint8_t code)
 
 static void mb_handle_frame(const uint8_t *req, uint16_t len)
 {
-    if (len < 4) return;
+    if (len < 4) { mb_short_frames++; return; }   /* a fragment, not a frame */
     if (req[0] != MODBUS_ADDR) return;                         /* not for us */
     uint16_t crc_rx = (uint16_t)(req[len - 2] | (req[len - 1] << 8));
-    if (crc16_modbus(req, (uint16_t)(len - 2)) != crc_rx) return; /* bad CRC: stay silent */
+    if (crc16_modbus(req, (uint16_t)(len - 2)) != crc_rx) {        /* bad CRC: stay silent */
+        mb_crc_errors++;
+        return;
+    }
 
     uint8_t fn = req[1];
     if (fn == 0x03) {
@@ -327,21 +337,39 @@ static void mb_handle_frame(const uint8_t *req, uint16_t len)
 
 static void mb_poll(void)
 {
-    if (mb_len == 0) return;
-    if ((now_us() - mb_last_rx_us) < mb_t35_us) return;   /* frame still arriving */
+    /*
+     * Has the line been quiet for 3.5 characters (end of a Modbus frame)?
+     * Snapshot the byte count and last-byte time with interrupts paused, and
+     * only THEN read the clock. Reading the clock first left a window where a
+     * byte could arrive in between: last-byte time > now, the unsigned
+     * subtraction wrapped to ~4e9 us, and a half-received frame was processed.
+     */
+    __disable_irq();
+    uint16_t pending = mb_len;
+    uint32_t last    = mb_last_rx_us;
+    __enable_irq();
+    if (pending == 0) return;
+    if ((int32_t)(now_us() - last) < (int32_t)mb_t35_us) return;   /* still arriving */
 
     uint8_t frame[sizeof mb_buf];
     uint16_t len;
-    uint8_t overflow;
+    uint8_t overflow, bad;
     __disable_irq();
+    if (mb_last_rx_us != last) {          /* a byte arrived just now: not finished */
+        __enable_irq();
+        return;
+    }
     len = mb_len;
     memcpy(frame, mb_buf, len);
     overflow = mb_overflow;
+    bad = mb_frame_bad;
     mb_len = 0;
     mb_overflow = 0;
+    mb_frame_bad = 0;
     __enable_irq();
 
-    if (!overflow) mb_handle_frame(frame, len);
+    /* Modbus rule: a frame with a corrupted character is discarded, no reply. */
+    if (!overflow && !bad) mb_handle_frame(frame, len);
 }
 
 /* ------------------------------------------------------------------ */
@@ -415,12 +443,29 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-    /* Overrun / framing / noise: drop the partial frame and keep listening. */
+    /*
+     * How the ST HAL behaves here (stm32g4xx_hal_uart.c, HAL_UART_IRQHandler):
+     *  - Noise, framing or parity error: the byte has ALREADY been stored via
+     *    HAL_UART_RxCpltCallback, reception keeps running ("non blocking").
+     *  - Overrun: reception is aborted and RxState goes back to READY.
+     * So: never wipe the buffer here. Noise alone is counted but tolerated
+     * (the CRC will catch a really bad byte); a corrupted or lost byte marks
+     * the frame bad so it is dropped once the frame ends.
+     */
+    uint32_t err = huart->ErrorCode;
+
     if (huart->Instance == huart1.Instance) {
-        mb_len = 0;
-        HAL_UART_Receive_IT(&huart1, &mb_rx_byte, 1);
+        if (err & HAL_UART_ERROR_NE) mb_noise_errors++;
+        if (err & (HAL_UART_ERROR_FE | HAL_UART_ERROR_PE | HAL_UART_ERROR_ORE)) {
+            mb_frame_errors++;
+            mb_frame_bad = 1;
+        }
+        mb_last_rx_us = now_us();          /* keep the end-of-frame timing honest */
+        if (huart->RxState == HAL_UART_STATE_READY)
+            HAL_UART_Receive_IT(&huart1, &mb_rx_byte, 1);
     } else if (huart->Instance == hlpuart1.Instance) {
-        HAL_UART_Receive_IT(&hlpuart1, &cmd_rx_byte, 1);
+        if (huart->RxState == HAL_UART_STATE_READY)
+            HAL_UART_Receive_IT(&hlpuart1, &cmd_rx_byte, 1);
     }
 }
 
@@ -501,10 +546,13 @@ void app_loop(void)
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);   /* heartbeat on LD2 */
         vcp_printf(0,
             "{\"cells\":[%u,%u,%u,%u],\"i_da\":%d,\"temp_dc\":%d,\"soc_pm\":%u,"
-            "\"grid_v\":%u,\"drift_mv\":%d,\"limit_mv\":%u,\"trip\":%u,\"polls\":%lu}\r\n",
+            "\"grid_v\":%u,\"drift_mv\":%d,\"limit_mv\":%u,\"trip\":%u,\"polls\":%lu,"
+            "\"noise_err\":%lu,\"frame_err\":%lu,\"crc_err\":%lu,\"short_err\":%lu}\r\n",
             bat.cell_mv[0], bat.cell_mv[1], bat.cell_mv[2], bat.cell_mv[3],
             (int)(bat.current_a * 10.0f), (int)(bat.temp_c * 10.0f),
             (unsigned)(bat.soc * 1000.0f), bat.grid_v, (int)bat.drift_mv, limit_mv,
-            (unsigned)trip_line_high(), (unsigned long)polls_served);
+            (unsigned)trip_line_high(), (unsigned long)polls_served,
+            (unsigned long)mb_noise_errors, (unsigned long)mb_frame_errors,
+            (unsigned long)mb_crc_errors, (unsigned long)mb_short_frames);
     }
 }

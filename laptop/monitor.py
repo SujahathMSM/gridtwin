@@ -51,7 +51,10 @@ def show(msg: dict, raw: bool) -> None:
         print(f"cells {c[0]} {c[1]} {c[2]} {c[3]} mV | I {msg['i_da'] / 10:.1f} A | "
               f"T {msg['temp_dc'] / 10:.1f} C | SOC {msg['soc_pm'] / 10:.1f}% | "
               f"drift {msg['drift_mv']} mV | trip {'ON ' if msg['trip'] else 'off'} | "
-              f"polls {msg['polls']}")
+              f"polls {msg['polls']}"
+              + (f" | link err: noise {msg['noise_err']} frame {msg['frame_err']} crc {msg['crc_err']}"
+                 + (f" short {msg['short_err']}" if "short_err" in msg else "")
+                 if "noise_err" in msg else ""))
     else:
         print(msg)
 
