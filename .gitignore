@@ -1,4 +1,3 @@
-@"
 # Python
 .venv/
 __pycache__/
@@ -12,4 +11,8 @@ firmware/Release/
 # Windows clutter
 Thumbs.db
 desktop.ini
-"@ | Set-Content -Encoding ascii .gitignore
+
+# Secrets (API keys) - never commit
+.env
+*.env
+!.env.example
