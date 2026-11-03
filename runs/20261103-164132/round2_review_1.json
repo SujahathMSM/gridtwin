@@ -1,0 +1,33 @@
+{
+  "final": {
+    "approve": true,
+    "extra_checks": [
+      {
+        "charge_a": 10,
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "drop",
+            "value": 60
+          }
+        ],
+        "poll_ms": 500,
+        "why": "minimal failing scenario: single-drop penalty must stay <500ms with 100ms safety interval"
+      },
+      {
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 500,
+        "why": "rule2 healthy at slowest poll: faster internal polling must not false-trip on tick phase repeats"
+      },
+      {
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 50,
+        "why": "rule2 healthy at fastest poll: 50ms interval with 100ms tick must tolerate legitimate single repeat"
+      }
+    ],
+    "problems": []
+  },
+  "tokens": 13200
+}

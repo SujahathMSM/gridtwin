@@ -1,0 +1,32 @@
+{
+  "final": {
+    "approve": true,
+    "extra_checks": [
+      {
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 50,
+        "why": "healthy link fast poll: same tick may legitimately repeat once (100ms period vs 50ms poll); must not false-trip"
+      },
+      {
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 500,
+        "why": "healthy link slow poll: tick advances ~5/poll, must never trip when no over-voltage"
+      },
+      {
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "poll_ms": 50,
+        "why": "stale with over-voltage at fast poll opposite end from minimal 500ms case; must trip within 500ms deadline"
+      }
+    ],
+    "problems": []
+  },
+  "tokens": 12663
+}

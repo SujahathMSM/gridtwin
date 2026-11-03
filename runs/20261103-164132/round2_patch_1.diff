@@ -1,0 +1,56 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -116,7 +116,7 @@
+ 
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+-                        timeout=0.15)
++                        timeout=0.09)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+           f"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV", flush=True)
+ 
+@@ -125,8 +125,15 @@
+     # repeat once (~50ms age); at 500ms poll healthy tick advances ~5/poll so
+     # any repeat (~500ms age) is stale. Timeout is poll-aware but capped well
+     # below the 500ms safety deadline (X + trip latency < 500ms).
++    # Safety sampling is decoupled from --poll-ms: internal loop runs at
++    # min(poll_ms, 100ms) so worst-case detection (interval + serial-block +
++    # stale_timeout) stays <500ms even at poll 500 with a dropped reply.
+     TICK_PERIOD_S = 0.10
+-    _raw_timeout = args.poll_ms / 1000.0 + 0.20
++    SAFETY_MAX_DT = 0.10
++    safety_dt = min(args.poll_ms / 1000.0, SAFETY_MAX_DT)
++    if safety_dt <= 0:
++        safety_dt = SAFETY_MAX_DT
++    _raw_timeout = safety_dt + 0.20
+     stale_timeout = max(0.22, min(0.27, _raw_timeout))
+     stale_ticks = stale_timeout / TICK_PERIOD_S
+ 
+@@ -156,7 +163,8 @@
+                         trip.set(True)
+                         print(f"TRIP: stale battery view (no fresh data for "
+                               f"{(_now_e - last_change_mono) * 1000:.0f} ms)", flush=True)
+-                time.sleep(args.poll_ms / 1000)
++                elapsed_e = time.monotonic() - t0
++                time.sleep(max(0.0, safety_dt - elapsed_e))
+                 continue
+ 
+             cur_tick = regs[10] & 0xFFFF
+@@ -210,7 +218,7 @@
+                           f"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  "
+                           f"tick={regs[10]}  trip={'ON' if trip.active else 'off'}", flush=True)
+                 elapsed = time.monotonic() - t0
+-                time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))
++                time.sleep(max(0.0, safety_dt - elapsed))
+                 continue
+ 
+             cells = regs[0:4]
+@@ -231,7 +239,7 @@
+                       f"tick={regs[10]}  trip={'ON' if trip.active else 'off'}", flush=True)
+ 
+             elapsed = time.monotonic() - t0
+-            time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))
++            time.sleep(max(0.0, safety_dt - elapsed))
+     except KeyboardInterrupt:
+         pass
+     finally:

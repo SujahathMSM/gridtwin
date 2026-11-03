@@ -1,0 +1,332 @@
+{
+  "final": {
+    "code_location": "pi/controller.py main() poll loop: `regs = read_registers(...); errors=0; cells=regs[0:4]; vmax=max(cells); if vmax>=limit: trip` + `except (ModbusError...): errors+=1; if errors>=5: trip`. regs[10] tick is read but only used in 1-sec status print `tick={regs[10]}`, never for freshness check.",
+    "evidence": [
+      "Repro attacker scenario stale=on drift=500 poll=200: FAIL no_trip, real max_cell 3795mV > limit 3650mV, deadline 500ms, no trip in 3000ms",
+      "Controller log frozen in repro: `cells=[3285, 3288, 3291, 3294] mV I=10.0A tick=47860 trip=off` repeated 4x; vmax reported 3294mV vs real 3795mV (501mV hidden)",
+      "Healthy control same drift=500 poll=200: PASS latency_ms 41.3 (until_reported 7.7 + reaction 33.6), log `TRIP: cell 4 at 3794 mV (limit 3650)` \u2014 proves stale necessary",
+      "Minimal threshold drift=400 stale=on poll=200: FAIL no_trip, real 3695mV >3650 (only 45mV over), log `cells=[3285,3288,3291,3294] tick=48064 trip=off` x5 over 4.3s; tick should +1/100ms (~43 steps) but 0 steps",
+      "Minimal + slowest poll drift=400 stale=on poll=500: FAIL no_trip, real 3695mV, log `tick=48305 trip=off` x5, polls_answered=10 replies_dropped=0 replies_corrupted=0 \u2014 valid-CRC frozen replies keep errors=0 so `errors>=5` fail-safe never fires",
+      "Link stats in all stale runs: polls_answered 23/24/10, 0 dropped/corrupted \u2014 failure is not comm-error path but trusted stale-data path"
+    ],
+    "fix_requirements": [
+      "Validate freshness of every successful read via reg10 tick freshness counter, not just CRC/exception; do not trust cells if tick is frozen",
+      "Detect frozen tick within bounded time that guarantees fail-safe trip within 500ms of over-voltage onset across poll-ms 50-500, even if stale starts at same time as drift (e.g. trip if tick unchanged for >X ms where X + trip latency <500ms, accounting for 100ms tick period and poll jitter)",
+      "On stale/frozen detection, drive fail-safe trip (same as lost-communication path) and latch until fresh advancing tick with all cells < re-arm threshold is observed",
+      "Tolerate normal timing: at poll 50ms same tick may legitimately repeat once (100ms tick period), must not false-trip on healthy link; at poll 500ms tick must advance ~5/poll \u2014 threshold must be poll-aware and still meet 500ms deadline",
+      "Preserve rule 1 on healthy link (trip <500ms when vmax>=3650) and rule 2 on healthy link (never trip when no over-voltage); fail-safe trip under faults with no over-voltage is acceptable"
+    ],
+    "minimal_scenario": {
+      "charge_a": 10,
+      "drift_mv": 400,
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "poll_ms": 500
+    },
+    "reproduced": true,
+    "root_cause": "Controller trusts any CRC-valid Modbus reply as current. Stale fault returns valid frozen frames (healthy cells + frozen tick) so read succeeds, errors reset to 0, fail-safe on errors>=5 never triggers, and vmax check sees frozen 3294mV <3650 forever. Tick reg10 is never checked for advancement, so frozen data is undetectable and real 3695-3795mV over-voltage is blinded past 3000ms (6x 500ms deadline).",
+    "rule_broken": "1_trip_in_time"
+  },
+  "transcript": [
+    {
+      "agent": "judge",
+      "tool": "describe_bench",
+      "args": {},
+      "result": {
+        "battery": "4-cell LiFePO4 pack, 100 Ah, emulated by an STM32 (physics at 60x real time)",
+        "link": "Modbus RTU, slave address 1, 9600 baud 8N1, over UART",
+        "register_map": {
+          "0-3": "cell 1-4 voltage, mV",
+          "4": "pack voltage, 10 mV",
+          "5": "pack current, 0.1 A signed (+ = charging)",
+          "6": "temperature, 0.1 degC",
+          "7": "state of charge, 0.1 %",
+          "8": "grid voltage, V",
+          "9": "status bits (bit0 trip line high)",
+          "10": "simulation tick, +1 every 100 ms (a freshness counter)",
+          "11": "charge current limit, 0.1 A, writable"
+        },
+        "safety_rules": {
+          "1_trip_in_time": "When any cell reaches 3650 mV, the controller must raise its trip line (GPIO23) within 500 ms. The STM32 timestamps the over-voltage and the trip edge in hardware (1 us resolution).",
+          "2_no_false_trips": "On a healthy link with no over-voltage, the controller must never trip: a false trip shuts the site down. (With faults active and no over-voltage, a fail-safe trip is acceptable.)"
+        },
+        "controller_deployment": "The controller runs with --poll-ms between 50 and 500 ms depending on the site; the default is 200 ms. Both safety rules must hold across that whole range.",
+        "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V, controller restarted if poll_ms changed) -> faults applied -> after 1 s, cell 4 is pushed up by drift_mv -> the STM32 reports PASS (trip within deadline), FAIL (late trip) or FAIL no_trip (no trip within 3 s) -> faults cleared, back to baseline. drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rule 2 (PASS = no trip, FAIL false_trip = tripped on a healthy link).",
+        "faults": {
+          "stale": {
+            "values": [
+              "on",
+              "off"
+            ],
+            "doc": "BMS keeps answering with frozen values (cells, current, temperature, SOC, tick) while the real battery keeps changing"
+          },
+          "delay": {
+            "min": 0,
+            "max": 2000,
+            "unit": "ms",
+            "doc": "every Modbus reply is sent this many ms late"
+          },
+          "drop": {
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "doc": "this percentage of Modbus requests get no reply"
+          },
+          "crc": {
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "doc": "this percentage of Modbus replies carry a corrupted CRC"
+          }
+        }
+      },
+      "seconds": 0.0
+    },
+    {
+      "agent": "judge",
+      "tool": "read_controller_source",
+      "args": {},
+      "result": {
+        "path": "pi/controller.py (as currently deployed)",
+        "source": "#!/usr/bin/env python3\n\"\"\"GridTwin-HIL day 1: the energy controller under test (runs on the Raspberry Pi 5).\n\nIt polls the battery that the Nucleo emulates over Modbus RTU and pulls the\nsafety-trip line (GPIO23) high as soon as any cell reaches the over-voltage\nlimit. The Nucleo times how long that took.\n\nUsage on the Pi:\n    python3 controller.py                       # defaults: /dev/ttyAMA0, 9600 baud\n    python3 controller.py --poll-ms 100         # poll faster -> lower trip latency\n    python3 controller.py --no-gpio --port /dev/ttyUSB0   # run without GPIO (testing)\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport sys\nimport time\n\nimport serial  # pip install pyserial\n\nSLAVE_ADDR = 1\nNUM_REGS = 12\nREG_NAMES = [\n    \"cell1_mv\", \"cell2_mv\", \"cell3_mv\", \"cell4_mv\", \"pack_10mv\", \"current_da\",\n    \"temp_dc\", \"soc_pm\", \"grid_v\", \"status\", \"tick\", \"charge_limit_da\",\n]\n\n\nclass ModbusError(Exception):\n    pass\n\n\ndef crc16(data: bytes) -> int:\n    crc = 0xFFFF\n    for b in data:\n        crc ^= b\n        for _ in range(8):\n            crc = (crc >> 1) ^ 0xA001 if crc & 1 else crc >> 1\n    return crc\n\n\ndef with_crc(body: bytes) -> bytes:\n    c = crc16(body)\n    return body + bytes([c & 0xFF, c >> 8])\n\n\ndef build_read(addr: int, start: int, count: int) -> bytes:\n    return with_crc(bytes([addr, 0x03, start >> 8, start & 0xFF, count >> 8, count & 0xFF]))\n\n\ndef build_write(addr: int, reg: int, value: int) -> bytes:\n    return with_crc(bytes([addr, 0x06, reg >> 8, reg & 0xFF, value >> 8, value & 0xFF]))\n\n\ndef check_crc(frame: bytes) -> None:\n    if len(frame) < 4 or crc16(frame[:-2]) != frame[-2] | (frame[-1] << 8):\n        raise ModbusError(f\"bad CRC in {frame.hex(' ')}\")\n\n\ndef parse_read_response(addr: int, count: int, frame: bytes) -> list[int]:\n    if len(frame) == 5 and frame[1] == 0x83:\n        check_crc(frame)\n        raise ModbusError(f\"exception code {frame[2]}\")\n    expected = 5 + 2 * count\n    if len(frame) != expected:\n        raise ModbusError(f\"expected {expected} bytes, got {len(frame)}: {frame.hex(' ')}\")\n    check_crc(frame)\n    if frame[0] != addr or frame[1] != 0x03 or frame[2] != 2 * count:\n        raise ModbusError(f\"unexpected header {frame[:3].hex(' ')}\")\n    return [(frame[3 + 2 * i] << 8) | frame[4 + 2 * i] for i in range(count)]\n\n\ndef read_registers(ser: serial.Serial, addr: int, start: int, count: int) -> list[int]:\n    ser.reset_input_buffer()\n    ser.write(build_read(addr, start, count))\n    expected = 5 + 2 * count\n    frame = ser.read(expected)            # pyserial stops at timeout if short\n    if len(frame) >= 2 and frame[1] == 0x83 and len(frame) >= 5:\n        frame = frame[:5]\n    if not frame:\n        raise ModbusError(\"no reply (timeout)\")\n    return parse_read_response(addr, count, frame)\n\n\ndef to_signed(v: int) -> int:\n    return v - 0x10000 if v & 0x8000 else v\n\n\nclass TripLine:\n    \"\"\"GPIO23 safety-trip output. Falls back to a dummy when --no-gpio is set.\"\"\"\n\n    def __init__(self, pin: int, enabled: bool):\n        self._dev = None\n        if enabled:\n            from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere\n            self._dev = OutputDevice(pin, active_high=True, initial_value=False)\n        self.active = False\n\n    def set(self, on: bool) -> None:\n        self.active = on\n        if self._dev is not None:\n            self._dev.on() if on else self._dev.off()\n\n\ndef main() -> int:\n    ap = argparse.ArgumentParser(description=\"GridTwin day-1 controller under test\")\n    ap.add_argument(\"--port\", default=\"/dev/ttyAMA0\")\n    ap.add_argument(\"--baud\", type=int, default=9600)\n    ap.add_argument(\"--poll-ms\", type=int, default=200, help=\"poll period in ms\")\n    ap.add_argument(\"--limit-mv\", type=int, default=3650, help=\"cell over-voltage limit\")\n    ap.add_argument(\"--rearm-mv\", type=int, default=3550,\n                    help=\"release the trip when every cell is below this\")\n    ap.add_argument(\"--trip-pin\", type=int, default=23, help=\"BCM GPIO number for the trip line\")\n    ap.add_argument(\"--no-gpio\", action=\"store_true\", help=\"don't touch GPIO (for testing)\")\n    args = ap.parse_args()\n\n    trip = TripLine(args.trip_pin, enabled=not args.no_gpio)\n    ser = serial.Serial(args.port, args.baud, bytesize=8, parity=\"N\", stopbits=1,\n                        timeout=0.15)\n    print(f\"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, \"\n          f\"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV\", flush=True)\n\n    errors = 0\n    last_print = 0.0\n    try:\n        while True:\n            t0 = time.monotonic()\n            try:\n                regs = read_registers(ser, SLAVE_ADDR, 0, NUM_REGS)\n                errors = 0\n            except (ModbusError, serial.SerialException, OSError) as e:\n                errors += 1\n                print(f\"modbus error #{errors}: {e}\", flush=True)\n                # Fail safe: if we lose the battery for 5 polls in a row, trip.\n                if errors >= 5 and not trip.active:\n                    trip.set(True)\n                    print(\"TRIP: lost communication with the battery\", flush=True)\n                time.sleep(args.poll_ms / 1000)\n                continue\n\n            cells = regs[0:4]\n            vmax = max(cells)\n            if not trip.active and vmax >= args.limit_mv:\n                trip.set(True)\n                print(f\"TRIP: cell {cells.index(vmax) + 1} at {vmax} mV \"\n                      f\"(limit {args.limit_mv})\", flush=True)\n            elif trip.active and vmax < args.rearm_mv:\n                trip.set(False)\n                print(f\"released: max cell {vmax} mV\", flush=True)\n\n            now = time.monotonic()\n            if now - last_print >= 1.0:\n                last_print = now\n                print(f\"cells={cells} mV  I={to_signed(regs[5]) / 10:.1f} A  \"\n                      f\"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  \"\n                      f\"tick={regs[10]}  trip={'ON' if trip.active else 'off'}\", flush=True)\n\n            elapsed = time.monotonic() - t0\n            time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))\n    except KeyboardInterrupt:\n        pass\n    finally:\n        trip.set(False)\n        ser.close()\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n"
+      },
+      "seconds": 0.0
+    },
+    {
+      "agent": "judge",
+      "tool": "run_scenario",
+      "args": {
+        "charge_a": 10,
+        "drift_mv": 500,
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "hypothesis": "Reproduce attacker stale Blinds controller, expect no trip.",
+        "poll_ms": 200
+      },
+      "result": {
+        "scenario": {
+          "faults": [
+            {
+              "name": "stale",
+              "value": "on"
+            }
+          ],
+          "drift_mv": 500,
+          "charge_a": 10,
+          "poll_ms": 200
+        },
+        "result": "FAIL",
+        "max_cell_mv_real": 3795,
+        "limit_mv": 3650,
+        "deadline_ms": 500,
+        "failure": "no_trip",
+        "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+        "modbus_link": {
+          "polls_answered": 23,
+          "replies_dropped": 0,
+          "replies_corrupted": 0
+        },
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=47860  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=47860  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=47860  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=47860  trip=off"
+        ],
+        "elapsed_s": 4.2,
+        "hypothesis": "Reproduce attacker stale Blinds controller, expect no trip.",
+        "scenarios_left": 3
+      },
+      "seconds": 5.3
+    },
+    {
+      "agent": "judge",
+      "tool": "run_scenario",
+      "args": {
+        "charge_a": 10,
+        "drift_mv": 500,
+        "faults": [],
+        "hypothesis": "Healthy control should trip quickly, proving stale is necessary.",
+        "poll_ms": 200
+      },
+      "result": {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 500,
+          "charge_a": 10,
+          "poll_ms": 200
+        },
+        "result": "PASS",
+        "max_cell_mv_real": 3794,
+        "limit_mv": 3650,
+        "deadline_ms": 500,
+        "latency_ms": 41.3,
+        "until_reported_ms": 7.7,
+        "reaction_ms": 33.6,
+        "modbus_link": {
+          "polls_answered": 9,
+          "replies_dropped": 0,
+          "replies_corrupted": 0
+        },
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=48049  trip=off",
+          "TRIP: cell 4 at 3794 mV (limit 3650)"
+        ],
+        "elapsed_s": 1.2,
+        "hypothesis": "Healthy control should trip quickly, proving stale is necessary.",
+        "scenarios_left": 2
+      },
+      "seconds": 2.3
+    },
+    {
+      "agent": "judge",
+      "tool": "run_scenario",
+      "args": {
+        "charge_a": 10,
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "hypothesis": "Reduced drift to threshold still over-voltage, expect still no trip if stale blinds.",
+        "poll_ms": 200
+      },
+      "result": {
+        "scenario": {
+          "faults": [
+            {
+              "name": "stale",
+              "value": "on"
+            }
+          ],
+          "drift_mv": 400,
+          "charge_a": 10,
+          "poll_ms": 200
+        },
+        "result": "FAIL",
+        "max_cell_mv_real": 3695,
+        "limit_mv": 3650,
+        "deadline_ms": 500,
+        "failure": "no_trip",
+        "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+        "modbus_link": {
+          "polls_answered": 24,
+          "replies_dropped": 0,
+          "replies_corrupted": 0
+        },
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48064  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48064  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48064  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48064  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48064  trip=off"
+        ],
+        "elapsed_s": 4.3,
+        "hypothesis": "Reduced drift to threshold still over-voltage, expect still no trip if stale blinds.",
+        "scenarios_left": 1
+      },
+      "seconds": 5.5
+    },
+    {
+      "agent": "judge",
+      "tool": "run_scenario",
+      "args": {
+        "charge_a": 10,
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "hypothesis": "Minimal drift at slowest poll should still fail, proving poll-independent.",
+        "poll_ms": 500
+      },
+      "result": {
+        "scenario": {
+          "faults": [
+            {
+              "name": "stale",
+              "value": "on"
+            }
+          ],
+          "drift_mv": 400,
+          "charge_a": 10,
+          "poll_ms": 500
+        },
+        "result": "FAIL",
+        "max_cell_mv_real": 3695,
+        "limit_mv": 3650,
+        "deadline_ms": 500,
+        "failure": "no_trip",
+        "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+        "modbus_link": {
+          "polls_answered": 10,
+          "replies_dropped": 0,
+          "replies_corrupted": 0
+        },
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48305  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48305  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48305  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48305  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=48305  trip=off"
+        ],
+        "elapsed_s": 4.3,
+        "hypothesis": "Minimal drift at slowest poll should still fail, proving poll-independent.",
+        "scenarios_left": 0
+      },
+      "seconds": 7.7
+    },
+    {
+      "agent": "judge",
+      "tool": "submit_verdict",
+      "args": {
+        "code_location": "pi/controller.py main() poll loop: `regs = read_registers(...); errors=0; cells=regs[0:4]; vmax=max(cells); if vmax>=limit: trip` + `except (ModbusError...): errors+=1; if errors>=5: trip`. regs[10] tick is read but only used in 1-sec status print `tick={regs[10]}`, never for freshness check.",
+        "evidence": [
+          "Repro attacker scenario stale=on drift=500 poll=200: FAIL no_trip, real max_cell 3795mV > limit 3650mV, deadline 500ms, no trip in 3000ms",
+          "Controller log frozen in repro: `cells=[3285, 3288, 3291, 3294] mV I=10.0A tick=47860 trip=off` repeated 4x; vmax reported 3294mV vs real 3795mV (501mV hidden)",
+          "Healthy control same drift=500 poll=200: PASS latency_ms 41.3 (until_reported 7.7 + reaction 33.6), log `TRIP: cell 4 at 3794 mV (limit 3650)` \u2014 proves stale necessary",
+          "Minimal threshold drift=400 stale=on poll=200: FAIL no_trip, real 3695mV >3650 (only 45mV over), log `cells=[3285,3288,3291,3294] tick=48064 trip=off` x5 over 4.3s; tick should +1/100ms (~43 steps) but 0 steps",
+          "Minimal + slowest poll drift=400 stale=on poll=500: FAIL no_trip, real 3695mV, log `tick=48305 trip=off` x5, polls_answered=10 replies_dropped=0 replies_corrupted=0 \u2014 valid-CRC frozen replies keep errors=0 so `errors>=5` fail-safe never fires",
+          "Link stats in all stale runs: polls_answered 23/24/10, 0 dropped/corrupted \u2014 failure is not comm-error path but trusted stale-data path"
+        ],
+        "fix_requirements": [
+          "Validate freshness of every successful read via reg10 tick freshness counter, not just CRC/exception; do not trust cells if tick is frozen",
+          "Detect frozen tick within bounded time that guarantees fail-safe trip within 500ms of over-voltage onset across poll-ms 50-500, even if stale starts at same time as drift (e.g. trip if tick unchanged for >X ms where X + trip latency <500ms, accounting for 100ms tick period and poll jitter)",
+          "On stale/frozen detection, drive fail-safe trip (same as lost-communication path) and latch until fresh advancing tick with all cells < re-arm threshold is observed",
+          "Tolerate normal timing: at poll 50ms same tick may legitimately repeat once (100ms tick period), must not false-trip on healthy link; at poll 500ms tick must advance ~5/poll \u2014 threshold must be poll-aware and still meet 500ms deadline",
+          "Preserve rule 1 on healthy link (trip <500ms when vmax>=3650) and rule 2 on healthy link (never trip when no over-voltage); fail-safe trip under faults with no over-voltage is acceptable"
+        ],
+        "minimal_scenario": {
+          "charge_a": 10,
+          "drift_mv": 400,
+          "faults": [
+            {
+              "name": "stale",
+              "value": "on"
+            }
+          ],
+          "poll_ms": 500
+        },
+        "reproduced": true,
+        "root_cause": "Controller trusts any CRC-valid Modbus reply as current. Stale fault returns valid frozen frames (healthy cells + frozen tick) so read succeeds, errors reset to 0, fail-safe on errors>=5 never triggers, and vmax check sees frozen 3294mV <3650 forever. Tick reg10 is never checked for advancement, so frozen data is undetectable and real 3695-3795mV over-voltage is blinded past 3000ms (6x 500ms deadline).",
+        "rule_broken": "1_trip_in_time"
+      },
+      "result": {
+        "received": true
+      },
+      "seconds": 0.0
+    }
+  ],
+  "tokens": 28925
+}

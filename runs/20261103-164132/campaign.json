@@ -1,0 +1,40 @@
+[
+  {
+    "round": 1,
+    "rule": "1_trip_in_time",
+    "root_cause": "Controller trusts any CRC-valid Modbus reply as current. Stale fault returns valid frozen frames (healthy cells + frozen tick) so read succeeds, errors reset to 0, fail-safe on errors>=5 never triggers, and vmax check sees frozen 3294mV <3650 forever. Tick reg10 is never checked for advancement, so frozen data is undetectable and real 3695-3795mV over-voltage is blinded past 3000ms (6x 500ms deadline).",
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "poll_ms": 500
+    },
+    "fix": "Trust tick reg10 for freshness, not just CRC. Track last distinct tick + wall-clock; trip fail-safe if same tick age > poll-aware timeout (0.25-0.27s) or if tick lags expected (elapsed/0.1 - advance > timeout/0.1) or goes backward. Latch trip until fresh advancing tick with cells<rearm. Preserves errors>=5 and over-voltage rules, tolerates 1 repeat at 50ms poll, trips first repeat at 500ms poll within 500ms deadline.",
+    "fixed": true,
+    "fix_attempts": 1
+  },
+  {
+    "round": 2,
+    "rule": "1_trip_in_time",
+    "root_cause": "At poll_ms 500 the safety loop sampling interval itself consumes the 500ms budget (healthy until_reported 204ms). Any single dropped reply delays the next cell report by a full poll period plus 0.15s serial block because error path sleeps full poll without subtracting elapsed (~604ms measured). Fail-safe on no-fresh-tick is only checked on next poll and uses stale_timeout 0.27s, so detection = poll + block + timeout ~600ms > deadline (logged 604ms). Thus if over-voltage onsets just after last fresh healthy poll and next poll(s) drop, both over-voltage report and stale fail-safe trip arrive past 500ms -> late/no_trip. Pre-tripped PASSes are phase luck, not guarantee.",
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 60
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "poll_ms": 500
+    },
+    "fix": "Fix 500ms-poll deadline miss: decouple safety sampling from --poll-ms by capping internal interval at 100ms, shorten serial timeout 0.15->0.09 so single-drop penalty ~100ms, and make error-path sleep elapsed-aware (safety_dt-elapsed). Stale timeout derived from safety interval so poll+timeout+block <500ms. Preserves tick-freshness, errors>=5, OV/rearm logic and CLI.",
+    "fixed": true,
+    "fix_attempts": 1
+  }
+]

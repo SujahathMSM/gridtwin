@@ -1,0 +1,31 @@
+[
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3296,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "no false trip on a healthy link",
+    "modbus_link": {
+      "polls_answered": 133,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.1%  tick=46820  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.2%  tick=46830  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.4%  tick=46840  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.6%  tick=46850  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.7%  tick=46860  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.9%  tick=46870  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.1%  tick=46880  trip=off"
+    ],
+    "elapsed_s": 5.7,
+    "hypothesis": "manual: idle"
+  }
+]

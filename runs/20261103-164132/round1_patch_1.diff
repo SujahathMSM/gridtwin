@@ -1,0 +1,94 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -120,8 +120,20 @@
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+           f"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV", flush=True)
+ 
++    # Freshness / fail-safe for stale (frozen but CRC-valid) data via tick reg10.
++    # Tick advances 1 per 100ms. At 50ms poll the same tick may legitimately
++    # repeat once (~50ms age); at 500ms poll healthy tick advances ~5/poll so
++    # any repeat (~500ms age) is stale. Timeout is poll-aware but capped well
++    # below the 500ms safety deadline (X + trip latency < 500ms).
++    TICK_PERIOD_S = 0.10
++    _raw_timeout = args.poll_ms / 1000.0 + 0.20
++    stale_timeout = max(0.22, min(0.27, _raw_timeout))
++    stale_ticks = stale_timeout / TICK_PERIOD_S
++
+     errors = 0
+     last_print = 0.0
++    last_tick = None
++    last_change_mono = None
+     try:
+         while True:
+             t0 = time.monotonic()
+@@ -135,7 +147,70 @@
+                 if errors >= 5 and not trip.active:
+                     trip.set(True)
+                     print("TRIP: lost communication with the battery", flush=True)
++                # Faster fail-safe: no fresh tick for longer than stale_timeout
++                # means we cannot trust our view -> trip (covers slow polls
++                # where 5 polls >> 500ms).
++                if last_change_mono is not None:
++                    _now_e = time.monotonic()
++                    if (_now_e - last_change_mono) > stale_timeout and not trip.active:
++                        trip.set(True)
++                        print(f"TRIP: stale battery view (no fresh data for "
++                              f"{(_now_e - last_change_mono) * 1000:.0f} ms)", flush=True)
+                 time.sleep(args.poll_ms / 1000)
++                continue
++
++            cur_tick = regs[10] & 0xFFFF
++            cur_mono = time.monotonic()
++            fresh = True
++            if last_tick is None:
++                last_tick = cur_tick
++                last_change_mono = cur_mono
++            elif cur_tick == last_tick:
++                age = cur_mono - last_change_mono
++                if age > stale_timeout:
++                    fresh = False
++                    if not trip.active:
++                        trip.set(True)
++                        print(f"TRIP: stale battery view (tick {cur_tick} unchanged "
++                              f"for {age * 1000:.0f} ms)", flush=True)
++                else:
++                    # Healthy repeat (e.g. 50ms poll, 100ms tick): keep old
++                    # baseline so age accumulates across polls.
++                    fresh = True
++            else:
++                fwd = (cur_tick - last_tick) % 65536
++                if fwd > 32768:
++                    # Tick went backwards (excluding wrap): untrustworthy.
++                    fresh = False
++                    if not trip.active:
++                        trip.set(True)
++                        print(f"TRIP: stale battery view (tick jumped backwards "
++                              f"{last_tick}->{cur_tick})", flush=True)
++                else:
++                    elapsed = cur_mono - last_change_mono
++                    expected = elapsed / TICK_PERIOD_S
++                    lag = expected - float(fwd)
++                    if lag > stale_ticks:
++                        fresh = False
++                        if not trip.active:
++                            trip.set(True)
++                            print(f"TRIP: stale battery view (tick {last_tick}->{cur_tick} "
++                                  f"lagging {lag:.1f} ticks / {elapsed * 1000:.0f} ms)", flush=True)
++                    else:
++                        last_tick = cur_tick
++                        last_change_mono = cur_mono
++                        fresh = True
++
++            if not fresh:
++                now = time.monotonic()
++                if now - last_print >= 1.0:
++                    last_print = now
++                    cells_dbg = regs[0:4]
++                    print(f"cells={cells_dbg} mV  I={to_signed(regs[5]) / 10:.1f} A  "
++                          f"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  "
++                          f"tick={regs[10]}  trip={'ON' if trip.active else 'off'}", flush=True)
++                elapsed = time.monotonic() - t0
++                time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))
+                 continue
+ 
+             cells = regs[0:4]
