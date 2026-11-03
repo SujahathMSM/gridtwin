@@ -1,0 +1,291 @@
+"""The test bench, as the agents see it.
+
+Bench       talks to the Nucleo (battery emulator + judge) over its USB serial port.
+PiController starts, stops, logs and redeploys the controller under test on the Pi over SSH.
+
+Agents never touch the hardware directly: they call run_scenario(), which applies a
+fixed, bounded set of faults and returns the Nucleo's measurement.
+"""
+from __future__ import annotations
+
+import json
+import queue
+import shlex
+import subprocess
+import threading
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import serial  # pyserial
+
+REPO = Path(__file__).resolve().parents[1]
+
+# What the agents are allowed to inject. Ranges are enforced here AND in firmware.
+FAULTS = {
+    "stale": {"values": ["on", "off"], "doc": "BMS keeps answering with frozen values (cells, current, temperature, SOC, tick) while the real battery keeps changing"},
+    "delay": {"min": 0, "max": 2000, "unit": "ms", "doc": "every Modbus reply is sent this many ms late"},
+    "drop":  {"min": 0, "max": 100, "unit": "%", "doc": "this percentage of Modbus requests get no reply"},
+    "crc":   {"min": 0, "max": 100, "unit": "%", "doc": "this percentage of Modbus replies carry a corrupted CRC"},
+}
+
+BENCH_INFO = {
+    "battery": "4-cell LiFePO4 pack, 100 Ah, emulated by an STM32 (physics at 60x real time)",
+    "link": "Modbus RTU, slave address 1, 9600 baud 8N1, over UART",
+    "register_map": {
+        "0-3": "cell 1-4 voltage, mV", "4": "pack voltage, 10 mV", "5": "pack current, 0.1 A signed (+ = charging)",
+        "6": "temperature, 0.1 degC", "7": "state of charge, 0.1 %", "8": "grid voltage, V",
+        "9": "status bits (bit0 trip line high)", "10": "simulation tick, +1 every 100 ms (a freshness counter)",
+        "11": "charge current limit, 0.1 A, writable",
+    },
+    "safety_rule": "When any cell reaches 3650 mV, the controller must raise its trip line (GPIO23) within 500 ms. "
+                   "The STM32 timestamps the over-voltage and the trip edge in hardware (1 us resolution).",
+    "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V) -> faults applied -> after 1 s, cell 4 is pushed up by drift_mv "
+                           "-> the STM32 reports PASS (trip within deadline), FAIL (late trip) or FAIL no_trip (no trip within 3 s) "
+                           "-> faults cleared, back to baseline.",
+    "faults": FAULTS,
+}
+
+
+class BenchError(RuntimeError):
+    pass
+
+
+class Bench:
+    """Serial link to the Nucleo. Reads its JSON lines in a background thread."""
+
+    def __init__(self, port: str, baud: int = 115200, log=print):
+        self.ser = serial.Serial(port, baud, timeout=0.2)
+        self.log = log
+        self.telemetry: dict = {}
+        self.events: "queue.Queue[dict]" = queue.Queue()
+        self.replies: "queue.Queue[dict]" = queue.Queue()
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+        threading.Thread(target=self._reader, daemon=True).start()
+
+    # -- low level -------------------------------------------------------
+    def _reader(self) -> None:
+        while not self._stop.is_set():
+            try:
+                raw = self.ser.readline()
+            except (serial.SerialException, OSError, TypeError):
+                return
+            line = raw.decode(errors="replace").strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            msg["_t"] = time.monotonic()
+            if "cells" in msg:
+                self.telemetry = msg
+            elif "event" in msg:
+                self.events.put(msg)
+            elif "ok" in msg or "error" in msg:
+                self.replies.put(msg)
+
+    def close(self) -> None:
+        self._stop.set()
+        try:
+            self.ser.close()
+        except Exception:
+            pass
+
+    def command(self, text: str, timeout: float = 2.0) -> dict:
+        """Send one command and wait for its ok/error reply."""
+        with self._lock:
+            while not self.replies.empty():
+                self.replies.get_nowait()
+            self.ser.write((text + "\n").encode())
+            try:
+                reply = self.replies.get(timeout=timeout)
+            except queue.Empty:
+                raise BenchError(f"no reply from the Nucleo to '{text}'")
+        if "error" in reply:
+            raise BenchError(f"Nucleo refused '{text}': {reply['error']}")
+        return reply
+
+    def fresh_telemetry(self, timeout: float = 2.0) -> dict:
+        before = self.telemetry.get("_t", 0)
+        self.ser.write(b"status\n")
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if self.telemetry.get("_t", 0) > before:
+                return dict(self.telemetry)
+            time.sleep(0.05)
+        raise BenchError("no telemetry from the Nucleo (is the monitor closed? right COM port?)")
+
+    def drain_events(self) -> list[dict]:
+        out = []
+        while not self.events.empty():
+            out.append(self.events.get_nowait())
+        return out
+
+    def wait_event(self, names: set[str], timeout: float) -> dict | None:
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            try:
+                ev = self.events.get(timeout=max(0.01, end - time.monotonic()))
+            except queue.Empty:
+                return None
+            if ev.get("event") in names:
+                return ev
+        return None
+
+    def wait_idle(self, timeout: float = 8.0) -> bool:
+        """Wait until all cells are below the limit and the trip line is low."""
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            t = self.fresh_telemetry()
+            if max(t["cells"]) < t["limit_mv"] - 60 and not t["trip"]:
+                return True
+            time.sleep(0.4)
+        return False
+
+    # -- the one tool the agents get --------------------------------------
+    def run_scenario(self, faults: list[dict], drift_mv: int = 400, charge_a: int = 10,
+                     observe_s: float = 4.0, controller: "PiController | None" = None) -> dict:
+        faults = validate_faults(faults)
+        drift_mv = int(max(0, min(800, drift_mv)))
+        charge_a = int(max(-100, min(100, charge_a)))
+
+        self.command("baseline")
+        self.command(f"i {charge_a}")
+        if not self.wait_idle():
+            return {"result": "ABORTED", "reason": "bench did not return to a safe idle state "
+                    "(trip line still high or cells over the limit) before the run"}
+        start = self.fresh_telemetry()
+        self.drain_events()
+
+        for f in faults:
+            self.command(f"fault {f['name']} {f['value']}")
+        time.sleep(1.0)
+        log_mark = controller.mark() if controller else 0
+
+        t0 = time.monotonic()
+        self.command(f"drift {drift_mv}")
+        verdict = self.wait_event({"trip", "no_trip"}, observe_s)
+        time.sleep(0.6)                     # let the controller log a little after the event
+        end = self.fresh_telemetry()
+        ctl_log = controller.lines_since(log_mark) if controller else []
+
+        # back to normal
+        self.command("fault clear")
+        self.command("drift 0")
+        recovered = self.wait_idle()
+
+        result: dict = {
+            "scenario": {"faults": faults, "drift_mv": drift_mv, "charge_a": charge_a},
+            "result": "INCONCLUSIVE", "max_cell_mv_real": max(end["cells"]),
+            "limit_mv": end["limit_mv"], "deadline_ms": 500,
+        }
+        if verdict is None:
+            if max(end["cells"]) < end["limit_mv"]:
+                result["reason"] = f"drift_mv={drift_mv} did not push any cell over the limit: use a larger drift"
+            else:
+                result["reason"] = "no verdict from the STM32 within the observation window"
+        elif verdict["event"] == "no_trip":
+            result.update(result="FAIL", failure="no_trip",
+                          detail=f"cell over the limit for {verdict['waited_ms']} ms and the controller never raised the trip line")
+        else:
+            result.update(result=verdict["result"], latency_ms=round(verdict["latency_us"] / 1000, 1),
+                          until_reported_ms=round(verdict["until_reported_us"] / 1000, 1),
+                          reaction_ms=round(verdict["reaction_us"] / 1000, 1))
+            if verdict.get("note"):
+                result["note"] = "controller was already tripped before the over-voltage (safe state)"
+        result["modbus_link"] = {
+            "polls_answered": end["polls"] - start["polls"],
+            "replies_dropped": end.get("dropped", 0) - start.get("dropped", 0),
+            "replies_corrupted": end.get("corrupted", 0) - start.get("corrupted", 0),
+        }
+        result["controller_log"] = ctl_log[-25:]
+        result["elapsed_s"] = round(time.monotonic() - t0, 1)
+        if not recovered:
+            result["warning"] = "bench did not recover to idle after the run"
+        return result
+
+
+def validate_faults(faults: list[dict]) -> list[dict]:
+    out = []
+    for f in faults or []:
+        name = str(f.get("name", "")).strip()
+        if name not in FAULTS:
+            raise BenchError(f"unknown fault '{name}', allowed: {sorted(FAULTS)}")
+        spec, val = FAULTS[name], f.get("value")
+        if "values" in spec:
+            val = str(val).lower()
+            if val not in spec["values"]:
+                raise BenchError(f"fault {name} takes {spec['values']}")
+        else:
+            try:
+                val = int(val)
+            except (TypeError, ValueError):
+                raise BenchError(f"fault {name} needs a number {spec['min']}..{spec['max']}")
+            if not spec["min"] <= val <= spec["max"]:
+                raise BenchError(f"fault {name} must be {spec['min']}..{spec['max']} {spec['unit']}")
+        out.append({"name": name, "value": val})
+    return out
+
+
+@dataclass
+class PiController:
+    """The controller under test, running on the Pi, driven over SSH."""
+    host: str                                   # e.g. pi5test@pi5-1.local or an ssh config alias
+    remote_dir: str = "~/gridtwin"
+    script: str = "pi/controller_live.py"
+    poll_ms: int = 200
+    log: callable = print
+    _proc: subprocess.Popen | None = None
+    _lines: list = field(default_factory=list)
+
+    def _ssh(self, remote_cmd: str, **kw) -> subprocess.CompletedProcess:
+        return subprocess.run(["ssh", "-o", "BatchMode=yes", self.host, remote_cmd],
+                              capture_output=True, text=True, timeout=30, **kw)
+
+    def check(self) -> None:
+        r = self._ssh("echo ok")
+        if r.returncode != 0 or "ok" not in r.stdout:
+            raise BenchError(f"cannot SSH to {self.host} without a password: {r.stderr.strip()}")
+
+    def deploy(self, source: str) -> None:
+        """Copy controller source to the Pi as the live controller."""
+        r = subprocess.run(["ssh", "-o", "BatchMode=yes", self.host,
+                            f"cat > {self.remote_dir}/{self.script}"],
+                           input=source, capture_output=True, text=True, timeout=30)
+        if r.returncode != 0:
+            raise BenchError(f"deploy failed: {r.stderr.strip()}")
+
+    def stop(self) -> None:
+        if self._proc and self._proc.poll() is None:
+            self._proc.terminate()
+        self._ssh("pkill -f '[p]i/controller' || true")   # never two controllers on one port
+        self._proc = None
+        time.sleep(0.5)
+
+    def start(self) -> None:
+        self.stop()
+        cmd = (f"cd {self.remote_dir} && exec .venv/bin/python -u {self.script} "
+               f"--poll-ms {self.poll_ms}")
+        self._proc = subprocess.Popen(["ssh", "-o", "BatchMode=yes", self.host, cmd],
+                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                      stdin=subprocess.DEVNULL, text=True, bufsize=1)
+        threading.Thread(target=self._pump, daemon=True).start()
+        time.sleep(1.5)
+        if self._proc.poll() is not None:
+            raise BenchError("controller exited at start:\n" + "\n".join(self._lines[-10:]))
+
+    def _pump(self) -> None:
+        proc = self._proc
+        for line in proc.stdout:
+            self._lines.append(line.rstrip())
+
+    def mark(self) -> int:
+        return len(self._lines)
+
+    def lines_since(self, mark: int) -> list[str]:
+        return self._lines[mark:]
+
+    def running(self) -> bool:
+        return bool(self._proc and self._proc.poll() is None)

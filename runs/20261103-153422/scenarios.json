@@ -1,0 +1,172 @@
+[
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 500,
+      "charge_a": 10
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3794,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 188.0,
+    "until_reported_ms": 154.4,
+    "reaction_ms": 33.7,
+    "modbus_link": {
+      "polls_answered": 10,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: cell 4 at 3794 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3794] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=6969  trip=ON"
+    ],
+    "elapsed_s": 1.4,
+    "hypothesis": "Healthy BMS should trip within 500 ms because polling is fast and values are fresh.",
+    "scenarios_left": 4
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 500,
+      "charge_a": 10
+    },
+    "result": "FAIL",
+    "max_cell_mv_real": 3795,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "failure": "no_trip",
+    "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+    "modbus_link": {
+      "polls_answered": 24,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7073  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7073  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7073  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7073  trip=off"
+    ],
+    "elapsed_s": 4.2,
+    "hypothesis": "With stale frozen BMS values controller never sees cell 4 rise, so no trip within 3 s despite real over-voltage.",
+    "scenarios_left": 3
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 500,
+      "charge_a": 10
+    },
+    "result": "FAIL",
+    "max_cell_mv_real": 3795,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "failure": "no_trip",
+    "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+    "modbus_link": {
+      "polls_answered": 24,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7338  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7338  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7338  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=7338  trip=off"
+    ],
+    "elapsed_s": 4.3,
+    "hypothesis": "Stale/frozen BMS values blind controller to real over-voltage, so no trip within 3s.",
+    "scenarios_left": 3
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 500,
+      "charge_a": 10
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3794,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 75.9,
+    "until_reported_ms": 42.2,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 9,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: cell 4 at 3794 mV (limit 3650)"
+    ],
+    "elapsed_s": 1.2,
+    "hypothesis": "Healthy baseline with same drift should trip quickly, proving failure is fault-dependent.",
+    "scenarios_left": 2
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 500,
+      "charge_a": 10
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3794,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 0.0,
+    "until_reported_ms": 0.0,
+    "reaction_ms": 0.0,
+    "note": "controller was already tripped before the over-voltage (safe state)",
+    "modbus_link": {
+      "polls_answered": 9,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=8103  stale=8  trip=ON"
+    ],
+    "elapsed_s": 1.3,
+    "hypothesis": "verification: judge's failing scenario"
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 10
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3694,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 203.4,
+    "until_reported_ms": 169.7,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 10,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=8139  trip=ON"
+    ],
+    "elapsed_s": 1.5,
+    "hypothesis": "verification: healthy regression"
+  }
+]

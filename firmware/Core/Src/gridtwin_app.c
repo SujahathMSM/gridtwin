@@ -81,7 +81,7 @@ static battery_t bat = { .soc = 0.50f, .temp_c = AMBIENT_C, .grid_v = 230 };
 
 static float    cmd_current_a  = 50.0f;  /* what the "charger" wants to push   */
 static uint16_t charge_limit_da = 1000;  /* written by the Pi (reg 11)          */
-static int      drift_from_pot = 1;
+static int      drift_from_pot = 0;   /* knob ignored until 'drift pot' (PA0 floats if unwired) */
 static float    manual_drift_mv = 0.0f;
 static uint16_t limit_mv       = 3650;
 static uint32_t deadline_ms    = 500;
@@ -117,7 +117,7 @@ static volatile uint16_t cmd_len;
 static volatile uint8_t  cmd_ready;
 
 /* VCP transmit buffer (interrupt-driven so it never blocks Modbus) */
-static char vcp_buf[320];
+static char vcp_buf[512];
 
 static uint32_t last_phys_ms, last_tele_ms;
 
@@ -174,6 +174,35 @@ static uint16_t max_cell_mv(void)
 static uint8_t trip_line_high(void)
 {
     return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_SET;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fault library: what a misbehaving BMS looks like from the outside   */
+/* ------------------------------------------------------------------ */
+static uint8_t  flt_stale;                 /* serve frozen values (stuck BMS buffer)   */
+static uint16_t flt_stale_regs[NUM_REGS];  /* the frozen snapshot                     */
+static uint32_t flt_delay_ms;              /* answer every request this late          */
+static uint8_t  flt_drop_pct;              /* ignore this % of requests                */
+static uint8_t  flt_crc_pct;               /* break the CRC on this % of replies       */
+static uint32_t flt_dropped, flt_corrupted;
+static uint32_t rng_state = 0x1234567u;
+
+static uint8_t rand_pct(void)              /* xorshift32: cheap, good enough for faults */
+{
+    rng_state ^= rng_state << 13;
+    rng_state ^= rng_state >> 17;
+    rng_state ^= rng_state << 5;
+    return (uint8_t)(rng_state % 100u);
+}
+
+static uint16_t reg_value(uint16_t r);
+
+/* What the controller is told. With 'fault stale' the cells, pack voltage,
+ * current, temperature, SOC and tick freeze; the real battery keeps going. */
+static uint16_t served_value(uint16_t r)
+{
+    if (flt_stale && r != 9 && r != 11) return flt_stale_regs[r];
+    return reg_value(r);
 }
 
 static uint16_t reg_value(uint16_t r)
@@ -252,6 +281,15 @@ static void physics_step(void)
         no_trip_reported = 0;
         vcp_printf(1, "{\"event\":\"overvoltage\",\"cell_mv\":%u,\"limit_mv\":%u}\r\n",
                    vmax, limit_mv);
+        if (trip_line_high()) {
+            /* The controller was already in its safe state before the cell
+             * crossed the limit: the battery was never unprotected. */
+            tripped = 1;
+            vcp_printf(1,
+                "{\"event\":\"trip\",\"latency_us\":0,\"until_reported_us\":0,"
+                "\"reaction_us\":0,\"deadline_ms\":%lu,\"result\":\"PASS\","
+                "\"note\":\"already_tripped\"}\r\n", (unsigned long)deadline_ms);
+        }
     }
     if (cross_us && !tripped && !no_trip_reported &&
         (now_us() - cross_us) > NO_TRIP_TIMEOUT_MS * 1000u) {
@@ -271,12 +309,57 @@ static void physics_step(void)
 /* ------------------------------------------------------------------ */
 /* Modbus RTU slave                                                   */
 /* ------------------------------------------------------------------ */
-static void mb_send(uint8_t *frame, uint16_t len_without_crc)
+/* A delayed reply waits here until it is due (sent from app_loop). */
+static uint8_t  pend_buf[3 + 2 * NUM_REGS + 2];
+static uint16_t pend_len;
+static uint8_t  pend_ov;
+static uint32_t pend_due_ms;
+
+static void mb_transmit(const uint8_t *frame, uint16_t len, uint8_t carries_ov)
+{
+    /* Timing starts when the bad value actually goes onto the wire. */
+    if (carries_ov && cross_us && !first_served_us) {
+        first_served_us = now_us();
+        if (first_served_us == 0) first_served_us = 1;
+    }
+    HAL_UART_Transmit(&huart1, (uint8_t *)frame, len, 200);
+}
+
+static void mb_send_ov(uint8_t *frame, uint16_t len_without_crc, uint8_t carries_ov)
 {
     uint16_t crc = crc16_modbus(frame, len_without_crc);
     frame[len_without_crc]     = (uint8_t)(crc & 0xFF);
     frame[len_without_crc + 1] = (uint8_t)(crc >> 8);
-    HAL_UART_Transmit(&huart1, frame, (uint16_t)(len_without_crc + 2u), 200);
+    uint16_t len = (uint16_t)(len_without_crc + 2u);
+
+    if (flt_drop_pct && rand_pct() < flt_drop_pct) { flt_dropped++; return; }
+    if (flt_crc_pct && rand_pct() < flt_crc_pct) {
+        frame[len_without_crc] ^= 0x5Au;              /* flip bits in the CRC */
+        flt_corrupted++;
+    }
+    if (flt_delay_ms) {
+        if (len > sizeof pend_buf) return;
+        memcpy(pend_buf, frame, len);                 /* a newer request replaces it */
+        pend_len = len;
+        pend_ov = carries_ov;
+        pend_due_ms = HAL_GetTick() + flt_delay_ms;
+        return;
+    }
+    mb_transmit(frame, len, carries_ov);
+}
+
+static void mb_send(uint8_t *frame, uint16_t len_without_crc)
+{
+    mb_send_ov(frame, len_without_crc, 0);
+}
+
+static void mb_send_pending(void)
+{
+    if (pend_len && (int32_t)(HAL_GetTick() - pend_due_ms) >= 0) {
+        uint16_t len = pend_len;
+        pend_len = 0;
+        mb_transmit(pend_buf, len, pend_ov);
+    }
 }
 
 static void mb_exception(uint8_t fn, uint8_t code)
@@ -307,18 +390,16 @@ static void mb_handle_frame(const uint8_t *req, uint16_t len)
         out[0] = MODBUS_ADDR;
         out[1] = 0x03;
         out[2] = (uint8_t)(qty * 2u);
+        uint8_t carries_ov = 0;     /* does this reply show an over-limit cell? */
         for (uint16_t k = 0; k < qty; k++) {
-            uint16_t v = reg_value((uint16_t)(start + k));
+            uint16_t r = (uint16_t)(start + k);
+            uint16_t v = served_value(r);
+            if (r < NUM_CELLS && v >= limit_mv) carries_ov = 1;
             out[3 + 2 * k]     = (uint8_t)(v >> 8);
             out[3 + 2 * k + 1] = (uint8_t)(v & 0xFF);
         }
-        /* Did this reply carry a cell value that is over the limit? */
-        if (cross_us && !first_served_us && start < NUM_CELLS) {
-            first_served_us = now_us();
-            if (first_served_us == 0) first_served_us = 1;
-        }
         polls_served++;
-        mb_send(out, (uint16_t)(3u + 2u * qty));
+        mb_send_ov(out, (uint16_t)(3u + 2u * qty), carries_ov);
     } else if (fn == 0x06) {
         if (len != 8) { mb_exception(fn, 0x03); return; }
         uint16_t reg = (uint16_t)((req[2] << 8) | req[3]);
@@ -378,8 +459,53 @@ static void mb_poll(void)
 static void print_help(void)
 {
     vcp_printf(1,
-        "{\"help\":\"status | i <amps> | drift <mV>|pot | limit <mV> | "
-        "deadline <ms> | soc <pct> | grid <V> | help\"}\r\n");
+        "{\"help\":\"status | baseline | i <amps> | drift <mV>|pot | limit <mV> | "
+        "deadline <ms> | soc <pct> | grid <V> | fault stale on|off | fault delay <ms> | "
+        "fault drop <pct> | fault crc <pct> | fault clear | help\"}\r\n");
+}
+
+static void faults_clear(void)
+{
+    flt_stale = 0;
+    flt_delay_ms = 0;
+    flt_drop_pct = 0;
+    flt_crc_pct = 0;
+    pend_len = 0;
+}
+
+static void handle_fault(const char *what, const char *val)
+{
+    if (!what) { vcp_printf(1, "{\"error\":\"fault needs a name\"}\r\n"); return; }
+    if (!strcmp(what, "clear")) {
+        faults_clear();
+        vcp_printf(1, "{\"ok\":\"fault clear\"}\r\n");
+        return;
+    }
+    if (!val) { vcp_printf(1, "{\"error\":\"missing value for fault %s\"}\r\n", what); return; }
+    long v = strtol(val, NULL, 10);
+
+    if (!strcmp(what, "stale")) {
+        if (!strcmp(val, "on")) {
+            for (uint16_t r = 0; r < NUM_REGS; r++) flt_stale_regs[r] = reg_value(r);
+            flt_stale = 1;
+        } else if (!strcmp(val, "off")) {
+            flt_stale = 0;
+        } else { vcp_printf(1, "{\"error\":\"fault stale on|off\"}\r\n"); return; }
+    } else if (!strcmp(what, "delay")) {
+        if (v < 0 || v > 2000) { vcp_printf(1, "{\"error\":\"delay must be 0..2000 ms\"}\r\n"); return; }
+        flt_delay_ms = (uint32_t)v;
+        if (!v) pend_len = 0;
+    } else if (!strcmp(what, "drop")) {
+        if (v < 0 || v > 100) { vcp_printf(1, "{\"error\":\"drop must be 0..100 %%\"}\r\n"); return; }
+        flt_drop_pct = (uint8_t)v;
+    } else if (!strcmp(what, "crc")) {
+        if (v < 0 || v > 100) { vcp_printf(1, "{\"error\":\"crc must be 0..100 %%\"}\r\n"); return; }
+        flt_crc_pct = (uint8_t)v;
+    } else {
+        vcp_printf(1, "{\"error\":\"unknown fault %s\"}\r\n", what);
+        return;
+    }
+    vcp_printf(1, "{\"ok\":\"fault %s %s\"}\r\n", what, val);
 }
 
 static void handle_command(char *line)
@@ -390,6 +516,20 @@ static void handle_command(char *line)
 
     if (!strcmp(cmd, "help")) { print_help(); return; }
     if (!strcmp(cmd, "status")) { last_tele_ms = 0; return; }
+    if (!strcmp(cmd, "fault")) { handle_fault(arg, strtok(NULL, " \t")); return; }
+    if (!strcmp(cmd, "baseline")) {
+        /* Known starting point for every test run. */
+        faults_clear();
+        drift_from_pot = 0;
+        manual_drift_mv = 0.0f;
+        cmd_current_a = 10.0f;
+        bat.soc = 0.50f;
+        bat.grid_v = 230;
+        limit_mv = 3650;
+        deadline_ms = 500;
+        vcp_printf(1, "{\"ok\":\"baseline\"}\r\n");
+        return;
+    }
     if (!arg) { vcp_printf(1, "{\"error\":\"missing value for %s\"}\r\n", cmd); return; }
 
     long v = strtol(arg, NULL, 10);
@@ -509,6 +649,7 @@ void app_init(void)
 void app_loop(void)
 {
     mb_poll();
+    mb_send_pending();
 
     if (trip_edge_flag) {
         uint32_t edge = trip_edge_us;
@@ -547,12 +688,16 @@ void app_loop(void)
         vcp_printf(0,
             "{\"cells\":[%u,%u,%u,%u],\"i_da\":%d,\"temp_dc\":%d,\"soc_pm\":%u,"
             "\"grid_v\":%u,\"drift_mv\":%d,\"limit_mv\":%u,\"trip\":%u,\"polls\":%lu,"
-            "\"noise_err\":%lu,\"frame_err\":%lu,\"crc_err\":%lu,\"short_err\":%lu}\r\n",
+            "\"noise_err\":%lu,\"frame_err\":%lu,\"crc_err\":%lu,\"short_err\":%lu,"
+            "\"f_stale\":%u,\"f_delay_ms\":%lu,\"f_drop\":%u,\"f_crc\":%u,"
+            "\"dropped\":%lu,\"corrupted\":%lu}\r\n",
             bat.cell_mv[0], bat.cell_mv[1], bat.cell_mv[2], bat.cell_mv[3],
             (int)(bat.current_a * 10.0f), (int)(bat.temp_c * 10.0f),
             (unsigned)(bat.soc * 1000.0f), bat.grid_v, (int)bat.drift_mv, limit_mv,
             (unsigned)trip_line_high(), (unsigned long)polls_served,
             (unsigned long)mb_noise_errors, (unsigned long)mb_frame_errors,
-            (unsigned long)mb_crc_errors, (unsigned long)mb_short_frames);
+            (unsigned long)mb_crc_errors, (unsigned long)mb_short_frames,
+            (unsigned)flt_stale, (unsigned long)flt_delay_ms, (unsigned)flt_drop_pct,
+            (unsigned)flt_crc_pct, (unsigned long)flt_dropped, (unsigned long)flt_corrupted);
     }
 }

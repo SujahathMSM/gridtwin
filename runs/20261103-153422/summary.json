@@ -1,0 +1,106 @@
+{
+  "finding": {
+    "found_failure": true,
+    "scenario": {
+      "charge_a": 10,
+      "drift_mv": 500,
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ]
+    },
+    "summary": "Controller never trips when BMS returns stale/frozen values. Real cell 4 reached 3795 mV (>3650 mV limit) but controller log shows frozen cells=[3285,3288,3291,3294] mV and frozen tick=7073, trip=off for entire 3000 ms window -> FAIL no_trip. Root cause: controller.py trusts cell voltages without checking freshness counter (reg 10 tick) or other liveness, so frozen Modbus replies blind it to real over-voltage. Healthy baseline with same drift trips in 188 ms, proving fault-dependent failure."
+  },
+  "verdict": {
+    "code_location": "main() poll loop in pi/controller.py: regs=read_registers(...); cells=regs[0:4]; vmax check \u2014 uses cell voltages directly without checking regs[10] tick freshness; fail-safe only on ModbusError count>=5",
+    "evidence": [
+      "stale on, drift 500: FAIL no_trip, real max 3795-3795mV >3650 limit, controller log frozen cells=[3285,3288,3291,3294] tick=7338 trip=off for entire window",
+      "healthy same drift 500: PASS latency 75.9ms TRIP cell 4 at 3794mV, proving fault-dependent",
+      "controller prints tick but never checks it; stale replies have valid CRC so errors counter stays 0 and lost-comm trip never fires"
+    ],
+    "fix_requirements": [
+      "Track regs[10] tick freshness every poll: store last tick and timestamp",
+      "Trip fail-safe if tick frozen (unchanged) for e.g. >=500ms or >=N consecutive polls, same as lost-communication handling",
+      "Handle tick wrap correctly and require strictly increasing tick within timeout",
+      "Do not reset comm-error counter on stale/frozen data; stale must trigger TRIP, not normal operation"
+    ],
+    "minimal_scenario": {
+      "charge_a": 10,
+      "drift_mv": 500,
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ]
+    },
+    "reproduced": true,
+    "root_cause": "Controller trusts cell voltages without checking freshness counter (reg 10 tick) or other liveness. Frozen Modbus replies with valid CRC blind it to real over-voltage; error-counter fail-safe only covers timeouts/CRC, so stale never trips."
+  },
+  "patch": "Track regs[10] tick freshness every poll. Any change (tick != last_tick) counts as fresh which handles 16-bit wrap. Frozen tick increments stale_count and comm-error counter (never reset on stale), trips fail-safe after >=3 frozen polls OR >=0.5s frozen, and blocks re-arm while stale. Healthy link with incrementing tick never trips.",
+  "verification": [
+    {
+      "check": "judge's failing scenario",
+      "scenario": {
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "drift_mv": 500,
+        "charge_a": 10
+      },
+      "result": "PASS",
+      "max_cell_mv_real": 3794,
+      "limit_mv": 3650,
+      "deadline_ms": 500,
+      "latency_ms": 0.0,
+      "until_reported_ms": 0.0,
+      "reaction_ms": 0.0,
+      "note": "controller was already tripped before the over-voltage (safe state)",
+      "modbus_link": {
+        "polls_answered": 9,
+        "replies_dropped": 0,
+        "replies_corrupted": 0
+      },
+      "controller_log": [
+        "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=8103  stale=8  trip=ON"
+      ],
+      "elapsed_s": 1.3,
+      "hypothesis": "verification: judge's failing scenario"
+    },
+    {
+      "check": "healthy regression",
+      "scenario": {
+        "faults": [],
+        "drift_mv": 400,
+        "charge_a": 10
+      },
+      "result": "PASS",
+      "max_cell_mv_real": 3694,
+      "limit_mv": 3650,
+      "deadline_ms": 500,
+      "latency_ms": 203.4,
+      "until_reported_ms": 169.7,
+      "reaction_ms": 33.6,
+      "modbus_link": {
+        "polls_answered": 10,
+        "replies_dropped": 0,
+        "replies_corrupted": 0
+      },
+      "controller_log": [
+        "TRIP: cell 4 at 3694 mV (limit 3650)",
+        "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=8139  trip=ON"
+      ],
+      "elapsed_s": 1.5,
+      "hypothesis": "verification: healthy regression"
+    },
+    {
+      "check": "no false trip at idle",
+      "result": "PASS"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 10
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3694,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 203.4,
+    "until_reported_ms": 169.8,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 10,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.0 C  SOC=50.2%  tick=4003  trip=ON"
+    ],
+    "elapsed_s": 1.5,
+    "hypothesis": "manual: healthy"
+  }
+]

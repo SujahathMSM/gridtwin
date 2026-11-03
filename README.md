@@ -155,14 +155,14 @@ and every call is logged.
 
 <br>
 
-The architect calls Muse Spark through the Meta Model API's chat-completions endpoint with `tools`.
+The architect calls Muse Spark (`muse-spark-1.3`) through the Meta Model API with `tools`.
 A trimmed example of asking it for the next scenario:
 
 ```python
 from openai import OpenAI   # chat-completions style client
 import os
 
-client = OpenAI(base_url="https://api.meta.ai/v1", api_key=os.environ["META_API_KEY"])
+client = OpenAI(base_url="https://api.meta.ai/v1", api_key=os.environ["MODEL_API_KEY"])
 
 tools = [{
     "type": "function",

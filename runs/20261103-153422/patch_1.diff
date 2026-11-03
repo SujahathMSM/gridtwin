@@ -1,0 +1,75 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -121,21 +121,71 @@
+           f"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV", flush=True)
+ 
+     errors = 0
++    last_tick = None
++    last_fresh_mono = None
++    stale_count = 0
++    STALE_TIMEOUT_S = 0.5
++    STALE_MAX_COUNT = 3
+     last_print = 0.0
+     try:
+         while True:
+             t0 = time.monotonic()
+             try:
+                 regs = read_registers(ser, SLAVE_ADDR, 0, NUM_REGS)
+-                errors = 0
+             except (ModbusError, serial.SerialException, OSError) as e:
+                 errors += 1
++                # Loss of liveness also means tick is not fresh; keep stale
++                # state so a subsequent frozen tick does not look fresh.
+                 print(f"modbus error #{errors}: {e}", flush=True)
+                 # Fail safe: if we lose the battery for 5 polls in a row, trip.
+                 if errors >= 5 and not trip.active:
+                     trip.set(True)
+                     print("TRIP: lost communication with the battery", flush=True)
+                 time.sleep(args.poll_ms / 1000)
++                continue
++
++            # Freshness check on regs[10] tick. Any change counts as fresh,
++            # which handles 16-bit wrap (e.g. 65535 -> 0) correctly.
++            tick = regs[10]
++            now_m = time.monotonic()
++            if last_tick is None:
++                last_tick = tick
++                last_fresh_mono = now_m
++                stale_count = 0
++                errors = 0
++            elif tick != last_tick:
++                last_tick = tick
++                last_fresh_mono = now_m
++                stale_count = 0
++                errors = 0
++            else:
++                # Frozen tick: view is untrusted. Do NOT reset error counter.
++                stale_count += 1
++                errors += 1
++                frozen_for = now_m - last_fresh_mono if last_fresh_mono is not None else 0.0
++                cells_s = regs[0:4]
++                vmax_s = max(cells_s)
++                # If frozen cells themselves look over-voltage, trip at once.
++                if not trip.active and vmax_s >= args.limit_mv:
++                    trip.set(True)
++                    print(f"TRIP: cell {cells_s.index(vmax_s) + 1} at {vmax_s} mV "
++                          f"(limit {args.limit_mv}) [stale tick {tick}]", flush=True)
++                elif not trip.active and (stale_count >= STALE_MAX_COUNT or frozen_for >= STALE_TIMEOUT_S):
++                    trip.set(True)
++                    print(f"TRIP: stale data (tick {tick} unchanged for "
++                          f"{frozen_for:.2f}s, {stale_count} polls)", flush=True)
++                elif errors >= 5 and not trip.active:
++                    trip.set(True)
++                    print("TRIP: lost communication with the battery", flush=True)
++                # Never re-arm while stale: skip normal release logic.
++                now = time.monotonic()
++                if now - last_print >= 1.0:
++                    last_print = now
++                    print(f"cells={cells_s} mV  I={to_signed(regs[5]) / 10:.1f} A  "
++                          f"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  "
++                          f"tick={regs[10]}  stale={stale_count}  trip={'ON' if trip.active else 'off'}", flush=True)
++                elapsed = time.monotonic() - t0
++                time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))
+                 continue
+ 
+             cells = regs[0:4]
