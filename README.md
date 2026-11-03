@@ -15,6 +15,12 @@ Raspberry Pi energy controller, time its safety response to the microsecond, and
 
 *Built for the Meta Global AI Developer Hackathon · Indie track · Theme: Push the Frontier (energy)*
 
+<br>
+
+<img src="docs/images/setup.jpeg" width="760" alt="The GridTwin-HIL bench: a Nucleo-G491RE battery emulator wired to a Raspberry Pi 5 controller, with the trip LED on a breadboard">
+
+<sub><b>The bench.</b> Nucleo-G491RE battery emulator (top) · Raspberry Pi 5 controller under test (right) · trip line and LED on the breadboard (left). No battery, no mains, nothing dangerous: the danger is emulated.</sub>
+
 </div>
 
 ---
@@ -329,8 +335,23 @@ measured trip latency with PASS or FAIL.
 
 ## Results
 
-Measured numbers go here as they come in: trip latency against polling rate, scenarios that broke
-the controller, and the fixes that held.
+### Day 1 · first measured trips
+
+Controller polling every 200 ms over Modbus RTU at 9600 baud; over-voltage limit 3650 mV; deadline 500 ms.
+
+| Trip | Total latency | Waiting for the next poll | Reply transfer + Pi processing | Result |
+|---|---|---|---|---|
+| 1 | **95.5 ms** | 61.8 ms | 33.7 ms | ✅ PASS |
+| 2 | **203.5 ms** | 169.8 ms | 33.7 ms | ✅ PASS |
+
+**First finding:** the 33.7 ms reaction is almost exactly the time a 29-byte reply takes at 9600 baud
+(about 33 ms), so the Pi's own processing is under a millisecond. Trip latency is dominated by the
+**polling interval and the serial link**, not the controller code: worst case ≈ 200 + 34 ≈ 234 ms.
+
+The bench also caught a real failure: with the trip wire disconnected, the Pi believed it had tripped,
+but the Nucleo saw no trip and scored it **FAIL**. The judge trusts the wire, not the controller's log.
+
+More results go here as the agents start running scenarios.
 
 ---
 
