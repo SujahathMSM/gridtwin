@@ -11,7 +11,7 @@ Raspberry Pi energy controller, time its safety response to the microsecond, and
 ![STM32G4](https://img.shields.io/badge/MCU-STM32G491RE-03234B)
 ![Raspberry Pi 5](https://img.shields.io/badge/Controller-Raspberry%20Pi%205-A22846)
 ![Modbus RTU](https://img.shields.io/badge/Protocol-Modbus%20RTU-555555)
-![Status](https://img.shields.io/badge/status-day%201%20working-2ea44f)
+![Status](https://img.shields.io/badge/agents-find%20%E2%86%92%20diagnose%20%E2%86%92%20fix%20on%20hardware-2ea44f)
 
 *Built for the Meta Global AI Developer Hackathon · Indie track · Theme: Push the Frontier (energy)*
 
@@ -56,9 +56,9 @@ The AI decides **what to test, why it failed and how to fix it**. The microcontr
 flowchart LR
     subgraph AI["🤖 Agent layer · laptop + cloud"]
         direction TB
-        A["Scenario architect<br/>Muse Spark"]
-        J["Test judge<br/>Muse Spark Open"]
-        F["Fixer<br/>Muse Code"]
+        A["Attacker<br/>Muse Spark"]
+        J["Judge<br/>Muse Spark"]
+        F["Fixer<br/>Muse Spark"]
         A --> J --> F
     end
 
@@ -66,7 +66,7 @@ flowchart LR
 
     subgraph HW["🔌 Hardware layer · on the desk"]
         direction TB
-        N["Nucleo-G491RE<br/>fake battery · inverter · meter<br/>µs trip timer"]
+        N["Nucleo-G491RE<br/>emulated battery + BMS faults<br/>µs trip timer"]
         P["Raspberry Pi 5<br/>energy controller under test"]
     end
 
@@ -89,47 +89,77 @@ flowchart LR
 
 ---
 
-## One test run
+## A real run, start to finish
+
+This is an unedited run from `runs/20261103-153422/`: three Muse Spark agents found a real safety bug
+in the controller, proved its cause, fixed it, and the fix was verified on the hardware.
+About 41k tokens in total.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as Scenario architect (Muse Spark)
+    participant A as Attacker (Muse Spark)
+    participant J as Judge (Muse Spark)
+    participant F as Fixer (Muse Spark)
     participant O as Orchestrator
-    participant N as Nucleo (fake battery)
-    participant P as Pi controller
-    participant J as Test judge (Muse Spark Open)
-    participant F as Fixer (Muse Code)
+    participant H as Hardware (Nucleo + Pi)
 
-    A->>O: start_scenario(grid sag + cell 4 drifting high + split Modbus reply)
-    O->>N: inject faults
-    loop every poll
-        P->>N: read registers (Modbus)
-        N-->>P: cell voltages, current, temperature
-    end
-    N->>N: cell 4 crosses 3650 mV, timer starts
-    N-->>O: no trip after 3000 ms, FAIL
-    O->>J: trip report + controller logs
-    J->>O: isolate: split reply alone still fails
-    J-->>F: root cause: partial frame read as a valid stale value
-    F->>P: patch: reject incomplete frames, treat stale data as unsafe
-    O->>N: replay the same faults
-    N-->>O: trip in 120 ms, PASS
-    O->>A: harder scenario please
+    A->>O: describe_bench, read_controller_source
+    A->>H: run_scenario(no faults, drift 500 mV)
+    H-->>A: PASS, trip in 188 ms
+    A->>H: run_scenario(stale on, drift 500 mV)
+    H-->>A: FAIL no_trip: cell at 3795 mV, controller log frozen at tick=7073
+    A->>J: finding: controller never checks data freshness
+    J->>H: reproduce: stale on
+    H-->>J: FAIL no_trip
+    J->>H: control: healthy link
+    H-->>J: PASS, 75.9 ms
+    J->>F: verdict: tick (register 10) never checked, fail-safe only covers timeouts and CRC
+    F->>O: submit_patch: fail safe when the tick stops changing
+    O->>H: deploy patch to the Pi, restart controller
+    O->>H: replay judge's failing scenario
+    H-->>O: PASS (already tripped: safe)
+    O->>H: healthy regression
+    H-->>O: PASS, 203 ms
+    O->>H: idle 5 s, healthy link
+    H-->>O: PASS, no false trip
 ```
 
-*(The scenario above is the target behaviour for the finished agents; day 1 runs the hardware half.)*
+| # | Who | Scenario or action | Hardware verdict |
+|---|---|---|---|
+| 1 | Attacker | Healthy baseline, drift 500 mV | ✅ PASS · 188.0 ms |
+| 2 | Attacker | **Stale BMS data**, drift 500 mV | ❌ FAIL · no trip in 3000 ms (real cell 3795 mV) |
+| 3 | Judge | Reproduce: stale data | ❌ FAIL · no trip |
+| 4 | Judge | Control: healthy link | ✅ PASS · 75.9 ms |
+| 5 | Fixer | Patch: track the tick, trip if it stops changing for 3 polls or 0.5 s | — |
+| 6 | Verify | Judge's failing scenario, patched controller | ✅ PASS · tripped before the over-voltage |
+| 7 | Verify | Healthy regression | ✅ PASS · 203.4 ms |
+| 8 | Verify | Healthy link at idle for 5 s | ✅ PASS · no false trip |
+
+**The judge's root cause, in its own words:** *"Controller trusts cell voltages without checking
+freshness counter (reg 10 tick) or other liveness. Frozen Modbus replies with valid CRC blind it to
+real over-voltage; error-counter fail-safe only covers timeouts/CRC, so stale never trips."*
+
+Everything the agents saw and did is saved in the run folder: every scenario with its hypothesis,
+every tool call, the verdict, the [patch](runs/20261103-153422/patch_1.diff) and the verification results.
 
 ---
 
 ## How the Muse models are used
 
-| Agent | Model | Access | Why this model |
-|---|---|---|---|
-| **Scenario architect** | Muse Spark | Meta Model API | Reads the controller code and its safety rules, then combines fault building blocks into scenarios. Needs strong reasoning and **function calling**. |
-| **Test judge** | Muse Spark Open | Open weights, served on Baseten or Modal | Analyses every run, narrows a failure to the smallest scenario that still breaks the controller. Independent of the model that designs the attacks. |
-| **Fixer** | Muse Code | Meta coding agent | Writes the patch to the Pi controller. It never grades its own work: the judge re-runs the attack. |
-| *Optional:* voice | Muse Voice Transcribe | Meta Model API | Speak a scenario ("test a stuck contactor during a grid drop") instead of typing it. |
+| Agent | Model | Access | Its job | Tools |
+|---|---|---|---|---|
+| **Attacker** | Muse Spark `muse-spark-1.3` | Meta Model API, Responses API | Reads the controller's code and the bench's safety rule, forms hypotheses, and spends a small budget of hardware runs to find a failure | `describe_bench`, `read_controller_source`, `run_scenario`, `submit_finding` |
+| **Judge** | Muse Spark (separate session) | Meta Model API (switchable to Muse Spark Open on Baseten) | Does not trust the attacker: reproduces the failure, runs controls, finds the minimal failing scenario and the responsible code | `describe_bench`, `read_controller_source`, `run_scenario`, `submit_verdict` |
+| **Fixer** | Muse Spark | Meta Model API | Writes the complete patched controller from the judge's verdict. It never tests its own work | `submit_patch` |
+
+**Why Muse Spark fits:** the attacker and judge have to plan across several tool calls, each of which costs
+~10 s of real hardware time, so they need to reason before acting. The Responses API keeps the model's
+reasoning across tool turns (`previous_response_id`), and each agent ends by calling a `submit_*` tool,
+so its output is structured JSON the orchestrator can check rather than free text.
+
+**Why three separate agents:** the one that designs the attack is not the one that judges it, and the one that
+writes the fix never grades it. The final verdict always comes from the hardware.
 
 <details>
 <summary><b>🔧 The tools the agents can call</b></summary>
@@ -141,12 +171,14 @@ and every call is logged.
 
 | Tool | Does | Safety rule |
 |---|---|---|
-| `start_scenario(spec)` | Loads a combination of faults onto the Nucleo | Only faults from a fixed library; no free-form firmware |
-| `inject_fault(kind, params)` | One fault: `cell_drift`, `grid_sag`, `stale_reply`, `split_frame`, `slow_reply`, `bad_crc` | Bounded parameter ranges, checked in firmware |
-| `read_trip_report(run_id)` | Measured latency, PASS/FAIL, timestamps | Read-only, produced by the Nucleo |
-| `read_controller_logs(run_id)` | The Pi controller's log for that run | Read-only |
-| `propose_patch(diff)` | Fixer submits a change to `pi/controller.py` | Applied on a branch, never to `main` |
-| `rerun(run_id)` | Replays the exact same faults | The only way a fix counts as passed |
+| `describe_bench()` | Register map, the safety rule, the fault library and how a run works | Read-only |
+| `read_controller_source()` | The controller under test | Read-only |
+| `run_scenario(faults, drift_mv, charge_a, hypothesis)` | Resets the bench, applies faults, pushes cell 4 over the limit, returns the STM32's hardware-timed verdict, link statistics and the controller's log | Only 4 faults (`stale`, `delay`, `drop`, `crc`), ranges checked in Python **and** in firmware; a fixed scenario budget per agent |
+| `submit_finding` / `submit_verdict` / `submit_patch` | Ends the agent's turn with structured JSON | A patch must compile and keep the CLI before it reaches the Pi |
+
+After a patch, the **orchestrator**, not an agent, deploys it to the Pi over SSH and replays the judge's
+failing scenario, a healthy regression and an idle false-trip check. If any check fails, the fixer gets the
+results and one more attempt.
 
 </details>
 
@@ -155,39 +187,23 @@ and every call is logged.
 
 <br>
 
-The architect calls Muse Spark (`muse-spark-1.3`) through the Meta Model API with `tools`.
-A trimmed example of asking it for the next scenario:
+The agents call Muse Spark through the Responses API with function tools. The core of the loop in
+[`agents/llm.py`](agents/llm.py), trimmed:
 
 ```python
-from openai import OpenAI   # chat-completions style client
-import os
-
 client = OpenAI(base_url="https://api.meta.ai/v1", api_key=os.environ["MODEL_API_KEY"])
 
-tools = [{
-    "type": "function",
-    "function": {
-        "name": "start_scenario",
-        "description": "Run a fault scenario on the hardware battery emulator",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "faults": {"type": "array", "items": {"type": "object"}},
-                "duration_s": {"type": "number", "maximum": 60},
-            },
-            "required": ["faults"],
-        },
-    },
-}]
-
-resp = client.chat.completions.create(
-    model=os.environ["MUSE_SPARK_MODEL"],
-    messages=[
-        {"role": "system", "content": "You design tests that break battery controllers safely."},
-        {"role": "user", "content": "Last run: trip in 180 ms at 200 ms polling. Find a weakness."},
-    ],
-    tools=tools,
-)
+resp = client.responses.create(model="muse-spark-1.3", instructions=ATTACKER,
+                               input="Find a condition under which this controller fails its trip.",
+                               tools=specs)
+while True:
+    calls = [o for o in resp.output if o.type == "function_call"]
+    if not calls:
+        break
+    outputs = [{"type": "function_call_output", "call_id": c.call_id,
+                "output": json.dumps(run_tool(c.name, c.arguments))} for c in calls]
+    resp = client.responses.create(model="muse-spark-1.3", previous_response_id=resp.id,
+                                   tools=specs, input=outputs)
 ```
 
 Model IDs and endpoints live in `.env` (see `.env.example`), so swapping a model is a config change.
@@ -271,7 +287,8 @@ gridtwin/
 │   └── Core/Src/gridtwin_app.c    battery model, Modbus slave, trip timer
 ├── pi/            controller.py, the controller under test
 ├── laptop/        monitor.py, live view and commands over USB
-├── agents/        Muse agents and orchestrator (in progress)
+├── agents/        gridtwin.py (orchestrator), bench.py (hardware tools), llm.py (tool-calling loop)
+├── runs/          every agent run: scenarios, tool calls, verdict, patch, verification
 └── docs/          setup guides
 ```
 
@@ -321,17 +338,34 @@ measured trip latency with PASS or FAIL.
 
 </details>
 
+<details>
+<summary><b>4 · Run the agents</b></summary>
+
+<br>
+
+Copy `.env.example` to `.env` and set `MODEL_API_KEY`, `NUCLEO_PORT` and `PI_SSH`
+(an SSH host the laptop can reach without a password). Close the monitor and stop the Pi controller:
+the orchestrator runs it itself.
+
+```bash
+python agents/gridtwin.py --scenario healthy   # bench check, no AI: expect PASS
+python agents/gridtwin.py --scenario stale     # bench check, no AI: expect FAIL no_trip
+python agents/gridtwin.py                      # attacker -> judge -> fixer -> hardware verification
+python agents/gridtwin.py --reset              # put the original controller back on the Pi
+```
+
+</details>
+
 ---
 
-## Roadmap
+## Built during the hackathon
 
-- [x] **Day 1** · Battery emulator, Modbus slave, microsecond trip timer, Pi controller, laptop monitor
-- [ ] **Day 2** · Fault library on the Nucleo: stale and split replies, slow replies, bad CRC, grid sag
-- [ ] **Day 3** · Orchestrator with logged tool calls
-- [ ] **Day 4** · Scenario architect on Muse Spark
-- [ ] **Day 5** · Test judge on Muse Spark Open, failure minimisation
-- [ ] **Day 6** · Fixer on Muse Code, patch then re-run loop
-- [ ] **Day 7** · Live dashboard and demo video
+- [x] Battery emulator firmware: LiFePO4 model, Modbus RTU slave, microsecond trip timer, link diagnostics
+- [x] Fault library in firmware: stale data, slow replies, lost replies, corrupted CRC
+- [x] Pi controller under test and laptop monitor
+- [x] Orchestrator with bounded hardware tools, SSH deploy and full run logs
+- [x] Attacker, judge and fixer agents on Muse Spark, verified end to end on hardware
+- [ ] Next: a fast-polling regression check, more fault types (grid sag, split frames), a live dashboard
 
 ## Results
 
