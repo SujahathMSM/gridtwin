@@ -105,7 +105,7 @@ def run_agent(backend: Backend, name: str, instructions: str, task: str, tools: 
             if not calls:
                 if run.final is None:      # model answered in text: remind it to submit
                     resp = backend.client.responses.create(
-                        model=backend.model, previous_response_id=resp.id, tools=specs,
+                        model=backend.model, instructions=instructions, previous_response_id=resp.id, tools=specs,
                         input="Finish by calling your submit tool with your result.")
                     continue
                 break
@@ -113,7 +113,7 @@ def run_agent(backend: Backend, name: str, instructions: str, task: str, tools: 
                         "output": json.dumps(handle(c.name, c.arguments), default=str)} for c in calls]
             if run.final is not None:
                 break
-            resp = backend.client.responses.create(model=backend.model, previous_response_id=resp.id,
+            resp = backend.client.responses.create(model=backend.model, instructions=instructions, previous_response_id=resp.id,
                                                    tools=specs, input=outputs)
         return run
 

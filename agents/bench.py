@@ -38,11 +38,19 @@ BENCH_INFO = {
         "9": "status bits (bit0 trip line high)", "10": "simulation tick, +1 every 100 ms (a freshness counter)",
         "11": "charge current limit, 0.1 A, writable",
     },
-    "safety_rule": "When any cell reaches 3650 mV, the controller must raise its trip line (GPIO23) within 500 ms. "
-                   "The STM32 timestamps the over-voltage and the trip edge in hardware (1 us resolution).",
-    "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V) -> faults applied -> after 1 s, cell 4 is pushed up by drift_mv "
-                           "-> the STM32 reports PASS (trip within deadline), FAIL (late trip) or FAIL no_trip (no trip within 3 s) "
-                           "-> faults cleared, back to baseline.",
+    "safety_rules": {
+        "1_trip_in_time": "When any cell reaches 3650 mV, the controller must raise its trip line (GPIO23) within 500 ms. "
+                          "The STM32 timestamps the over-voltage and the trip edge in hardware (1 us resolution).",
+        "2_no_false_trips": "On a healthy link with no over-voltage, the controller must never trip: a false trip shuts the site "
+                            "down. (With faults active and no over-voltage, a fail-safe trip is acceptable.)",
+    },
+    "controller_deployment": "The controller runs with --poll-ms between 50 and 500 ms depending on the site; "
+                             "the default is 200 ms. Both safety rules must hold across that whole range.",
+    "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V, controller restarted if poll_ms changed) -> faults applied "
+                           "-> after 1 s, cell 4 is pushed up by drift_mv -> the STM32 reports PASS (trip within deadline), "
+                           "FAIL (late trip) or FAIL no_trip (no trip within 3 s) -> faults cleared, back to baseline. "
+                           "drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rule 2 "
+                           "(PASS = no trip, FAIL false_trip = tripped on a healthy link).",
     "faults": FAULTS,
 }
 
@@ -134,6 +142,19 @@ class Bench:
                 return ev
         return None
 
+    def _collect(self, window: float) -> list[dict]:
+        """All STM32 events for up to `window` s; stops early on a trip verdict."""
+        out, end = [], time.monotonic() + window
+        while time.monotonic() < end:
+            try:
+                ev = self.events.get(timeout=max(0.01, end - time.monotonic()))
+            except queue.Empty:
+                break
+            out.append(ev)
+            if ev.get("event") in ("trip", "no_trip"):
+                break
+        return out
+
     def wait_idle(self, timeout: float = 8.0) -> bool:
         """Wait until all cells are below the limit and the trip line is low."""
         end = time.monotonic() + timeout
@@ -151,22 +172,32 @@ class Bench:
         drift_mv = int(max(0, min(800, drift_mv)))
         charge_a = int(max(-100, min(100, charge_a)))
 
+        scenario = {"faults": faults, "drift_mv": drift_mv, "charge_a": charge_a}
+        if controller:
+            scenario["poll_ms"] = controller.poll_ms
+        log_mark = controller.mark() if controller else 0
+
         self.command("baseline")
         self.command(f"i {charge_a}")
         if not self.wait_idle():
-            return {"result": "ABORTED", "reason": "bench did not return to a safe idle state "
-                    "(trip line still high or cells over the limit) before the run"}
+            t = self.fresh_telemetry()
+            if max(t["cells"]) >= t["limit_mv"] - 60:
+                return {"scenario": scenario, "result": "ABORTED",
+                        "reason": "cells did not return below the limit before the run"}
+            # cells are fine and there are no faults, yet the trip line stays high
+            return {"scenario": scenario, "result": "FAIL", "failure": "false_trip",
+                    "detail": "with a healthy battery and no faults, the controller holds its trip line high at idle",
+                    "controller_log": (controller.lines_since(log_mark) if controller else [])[-25:]}
         start = self.fresh_telemetry()
         self.drain_events()
 
         for f in faults:
             self.command(f"fault {f['name']} {f['value']}")
         time.sleep(1.0)
-        log_mark = controller.mark() if controller else 0
 
         t0 = time.monotonic()
         self.command(f"drift {drift_mv}")
-        verdict = self.wait_event({"trip", "no_trip"}, observe_s)
+        events = self._collect(observe_s if drift_mv >= 300 else max(observe_s, 5.0))
         time.sleep(0.6)                     # let the controller log a little after the event
         end = self.fresh_telemetry()
         ctl_log = controller.lines_since(log_mark) if controller else []
@@ -176,16 +207,27 @@ class Bench:
         self.command("drift 0")
         recovered = self.wait_idle()
 
+        names = [e["event"] for e in events]
+        verdict = next((e for e in events if e["event"] in ("trip", "no_trip")), None)
+        overvoltage = "overvoltage" in names
         result: dict = {
-            "scenario": {"faults": faults, "drift_mv": drift_mv, "charge_a": charge_a},
-            "result": "INCONCLUSIVE", "max_cell_mv_real": max(end["cells"]),
+            "scenario": scenario, "result": "INCONCLUSIVE", "max_cell_mv_real": max(end["cells"]),
             "limit_mv": end["limit_mv"], "deadline_ms": 500,
         }
-        if verdict is None:
-            if max(end["cells"]) < end["limit_mv"]:
-                result["reason"] = f"drift_mv={drift_mv} did not push any cell over the limit: use a larger drift"
+        if verdict is None and not overvoltage:
+            tripped = "spurious_trip" in names or bool(end["trip"])
+            if not faults:                               # rule 2: healthy link, no over-voltage
+                if tripped:
+                    result.update(result="FAIL", failure="false_trip",
+                                  detail="no over-voltage and a healthy link, but the controller tripped")
+                else:
+                    result.update(result="PASS", check="no false trip on a healthy link")
             else:
-                result["reason"] = "no verdict from the STM32 within the observation window"
+                result.update(result="NO_OVERVOLTAGE",
+                              observation=("controller tripped (fail-safe, acceptable with faults active)"
+                                           if tripped else "controller did not trip"))
+        elif verdict is None:
+            result["reason"] = "no verdict from the STM32 within the observation window"
         elif verdict["event"] == "no_trip":
             result.update(result="FAIL", failure="no_trip",
                           detail=f"cell over the limit for {verdict['waited_ms']} ms and the controller never raised the trip line")
