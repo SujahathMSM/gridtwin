@@ -5,6 +5,7 @@
     python agents/gridtwin.py --rounds 1      # a single round
     python agents/gridtwin.py --reset         # put the original (vulnerable) controller back on the Pi
     python agents/gridtwin.py --scenario stale [--poll-ms 50]   # one hand-written scenario, no AI
+    python agents/gridtwin.py --scenario healthy --poll-ms 500 --timing worst_case
 
 Settings come from .env: MODEL_API_KEY, NUCLEO_PORT, PI_SSH (optionally JUDGE_PROVIDER=baseten).
 Every run is saved under runs/<timestamp>/.
@@ -12,6 +13,8 @@ Every run is saved under runs/<timestamp>/.
 A round:
   attacker  finds a failure of either safety rule, knowing what earlier rounds found and fixed
   judge     reproduces it, isolates the minimal scenario, names the root cause
+            (evidence rule: a finding or verdict claiming a failure is refused unless that agent's
+             own hardware runs include a FAIL, and the judge's minimal scenario is one it saw FAIL)
   fixer     writes a patch                               <-+
   judge     reviews the patch before it reaches the Pi;    | rejected: reasons go back
             can add its own hardware checks              --+
@@ -94,6 +97,10 @@ SCENARIO_PROPS = {
     "drift_mv": {"type": "integer", "description": "How far cell 4 is pushed up, 0-800 mV. >=400 causes an over-voltage (rule 1); <=250 does not (tests rule 2)."},
     "charge_a": {"type": "integer", "description": "Charging current in A, -100..100. Default 10."},
     "poll_ms": {"type": "integer", "description": "Controller polling interval for this run, 50-500 ms. Default 200."},
+    "timing": {"type": "string", "enum": ["random", "worst_case"],
+               "description": "When the over-voltage starts relative to the controller's polling. random (default): "
+                              "anywhere in the poll cycle. worst_case: right after the BMS answers a read, so "
+                              "timing races reproduce every time."},
 }
 SCENARIO_PARAMS = {"type": "object",
                    "properties": {**SCENARIO_PROPS,
@@ -108,7 +115,22 @@ def obj(props: dict, req: list[str]) -> dict:
 def norm(sc: dict | None) -> dict:
     sc = sc or {}
     return {"faults": sc.get("faults") or [], "drift_mv": int(sc.get("drift_mv", 400)),
-            "charge_a": int(sc.get("charge_a", 10)), "poll_ms": int(sc.get("poll_ms", DEFAULT_POLL_MS))}
+            "charge_a": int(sc.get("charge_a", 10)), "poll_ms": int(sc.get("poll_ms", DEFAULT_POLL_MS)),
+            "timing": str(sc.get("timing") or "random")}
+
+
+def scenario_key(sc: dict) -> tuple:
+    """What makes two scenarios the same test (for matching a claim to a measured run)."""
+    n = norm(sc)
+    faults = tuple(sorted((str(f.get("name")), str(f.get("value")).lower()) for f in n["faults"]))
+    return (faults, n["drift_mv"], n["charge_a"], max(50, min(500, n["poll_ms"])), n["timing"])
+
+
+def fail_summary(r: dict) -> dict:
+    """Compact record of a measured FAIL, used as hardware evidence."""
+    return {"scenario": r.get("scenario"), "result": r.get("result"), "failure": r.get("failure"),
+            "latency_ms": r.get("latency_ms"), "until_reported_ms": r.get("until_reported_ms"),
+            "detail": r.get("detail")}
 
 
 class Session:
@@ -130,20 +152,23 @@ class Session:
         return {"path": "pi/controller.py (as currently deployed)", "source": self.source}
 
     def run_scenario(self, faults, drift_mv=400, charge_a=10, poll_ms=DEFAULT_POLL_MS, hypothesis="",
-                     budget=None) -> dict:
+                     budget=None, timing="random") -> dict:
         if budget is not None and budget["left"] <= 0:
             return {"error": "scenario budget used up: submit your result now"}
         poll_ms = int(max(50, min(500, int(poll_ms or DEFAULT_POLL_MS))))
         if not self.pi.running() or self.pi.poll_ms != poll_ms:
             self.pi.poll_ms = poll_ms
             self.pi.start()
-        r = self.bench.run_scenario(faults, drift_mv=drift_mv, charge_a=charge_a, controller=self.pi)
+        r = self.bench.run_scenario(faults, drift_mv=drift_mv, charge_a=charge_a, controller=self.pi,
+                                    timing=timing or "random")
         r["hypothesis"] = hypothesis
         self.scenarios.append(r)
         self.save("scenarios.json", self.scenarios)
         if budget is not None:
             budget["left"] -= 1
             r["scenarios_left"] = budget["left"]
+            if r.get("result") == "FAIL":
+                budget.setdefault("fails", []).append(fail_summary(r))
         return r
 
     def scenario_tool(self, budget: dict) -> Tool:
@@ -152,8 +177,8 @@ class Session:
                     "controller's polling rate, push cell 4 up by drift_mv, and get the STM32's hardware-timed "
                     "verdict plus the controller's log. Takes ~10 s.",
                     SCENARIO_PARAMS,
-                    lambda faults, drift_mv=400, charge_a=10, poll_ms=DEFAULT_POLL_MS, hypothesis="":
-                        self.run_scenario(faults, drift_mv, charge_a, poll_ms, hypothesis, budget))
+                    lambda faults, drift_mv=400, charge_a=10, poll_ms=DEFAULT_POLL_MS, hypothesis="", timing="random":
+                        self.run_scenario(faults, drift_mv, charge_a, poll_ms, hypothesis, budget, timing))
 
     def common_tools(self) -> list[Tool]:
         return [Tool("describe_bench", "Register map, safety rules, deployment range, fault library, how a scenario runs.",
@@ -164,10 +189,18 @@ class Session:
     def history_text(self) -> str:
         if not self.history:
             return "No earlier rounds: this is the original controller."
-        lines = ["Earlier rounds (these failures were found, fixed and verified on hardware; do not report them again):"]
-        for h in self.history:
-            lines.append(f"- Round {h['round']}: {h['root_cause']} Failing scenario: {json.dumps(h['scenario'])}. "
-                         f"Fix applied: {h['fix']}")
+        fixed = [h for h in self.history if h["fixed"]]
+        unproven = [h for h in self.history if not h["fixed"]]
+        lines = []
+        if fixed:
+            lines.append("Earlier rounds (these failures were found, fixed and verified on hardware; do not report them again):")
+            for h in fixed:
+                lines.append(f"- Round {h['round']}: {h['root_cause']} Failing scenario: {json.dumps(h['scenario'])}. "
+                             f"Fix applied: {h['fix']}")
+        if unproven:
+            lines.append("Suspected in earlier rounds but NOT reproduced on hardware (nothing was changed):")
+            for h in unproven:
+                lines.append(f"- Round {h['round']}: {h['root_cause']}")
         return "\n".join(lines)
 
 
@@ -181,6 +214,9 @@ Your job: find a realistic condition under which the controller as currently dep
   then design scenarios that test those specific hypotheses.
 - Every scenario runs on real hardware and costs ~10 s; make each one count.
 - A failure only counts if it is caused by the condition you created: compare against a healthy control.
+- A finding needs a FAIL measured on the hardware. Reasoning alone is not accepted: if you suspect a
+  failure you could not make happen, keep testing or report that you found none. describe_bench explains
+  how to make timing-dependent behaviour reproducible.
 - If earlier rounds are listed, the controller has been patched for them. Look for something new,
   including problems the patches themselves may have introduced.
 - When you have a reproducible failure, or your budget is spent, call submit_finding."""
@@ -192,7 +228,9 @@ breaks a safety rule. You did not design the attack; do not trust its explanatio
 2. Find the MINIMAL scenario that still fails: remove or reduce faults and parameters one at a time.
 3. Read the controller source and locate the responsible code.
 4. Call submit_verdict: root cause, minimal failing scenario, evidence (cite measured numbers and controller
-   log lines) and precise requirements a fix must meet. Do not write code."""
+   log lines) and precise requirements a fix must meet. Do not write code.
+Only the hardware decides: reproduced=true requires that one of YOUR runs FAILED, and minimal_scenario must be
+exactly a scenario you ran and saw FAIL. If you could not make it fail, submit reproduced=false."""
 
 FIXER = """You are the fixer in GridTwin-HIL. You receive the judge's verdict on a safety failure of a
 battery controller running on a Raspberry Pi, the history of earlier fixes, and the controller's full source.
@@ -227,10 +265,13 @@ def attack(s: Session, backend, budget: int, rnd: int) -> dict | None:
                   "scenario": obj(SCENARIO_PROPS, ["faults", "drift_mv"]),
                   "summary": {"type": "string", "description": "What fails and why, citing measurements"}},
                  ["found_failure", "summary"]),
-             lambda **kw: {"received": True}, final=True)]
+             lambda **kw: check_finding(kw, b), final=True)]
     task = f"Round {rnd}.\n{s.history_text()}\n\nFind a condition under which the controller breaks a safety rule."
     run = run_agent(backend, "attacker", ATTACKER, task, tools, max_turns=budget + 8, on_event=on_event)
-    s.save(f"round{rnd}_attacker.json", {"final": run.final, "transcript": run.transcript, "tokens": run.tokens})
+    if run.final and run.final.get("found_failure"):
+        run.final["hardware_evidence"] = b.get("fails", [])
+    s.save(f"round{rnd}_attacker.json", {"final": run.final, "transcript": run.transcript, "tokens": run.tokens,
+                                         "refused_submissions": b.get("refused", [])})
     if run.final:
         say("attacker", f"finding: {run.final.get('summary', '')}")
     return run.final
@@ -250,13 +291,55 @@ def investigate(s: Session, backend, finding: dict, budget: int, rnd: int) -> di
                   "evidence": {"type": "array", "items": {"type": "string"}},
                   "fix_requirements": {"type": "array", "items": {"type": "string"}}},
                  ["reproduced", "minimal_scenario", "root_cause", "evidence", "fix_requirements"]),
-             lambda **kw: {"received": True}, final=True)]
+             lambda **kw: check_verdict(kw, b), final=True)]
     task = f"{s.history_text()}\n\nThe attacker reports:\n{json.dumps(finding, indent=2)}"
     run = run_agent(backend, "judge", JUDGE, task, tools, max_turns=budget + 8, on_event=on_event)
-    s.save(f"round{rnd}_judge.json", {"final": run.final, "transcript": run.transcript, "tokens": run.tokens})
-    if run.final:
-        say("judge", f"root cause: {run.final.get('root_cause', '')}")
-    return run.final
+    v = run.final
+    if v and v.get("reproduced"):
+        # belt and braces: the tool already refused unproven verdicts, check again here
+        key = scenario_key(v.get("minimal_scenario") or {})
+        proof = [f for f in b.get("fails", []) if scenario_key(f["scenario"] or {}) == key]
+        if not proof:
+            v = {**v, "reproduced": False, "overruled": "no FAIL measured by the judge for its minimal scenario"}
+        else:
+            v["hardware_evidence"] = proof
+    s.save(f"round{rnd}_judge.json", {"final": v, "transcript": run.transcript, "tokens": run.tokens,
+                                      "refused_submissions": b.get("refused", [])})
+    if v:
+        say("judge", f"root cause: {v.get('root_cause', '')}" if v.get("reproduced")
+            else "NOT reproduced on hardware" + (f" ({v['overruled']})" if v.get("overruled") else ""))
+    return v
+
+
+def _refuse(b: dict, why: str, payload: dict) -> dict:
+    b.setdefault("refused", []).append({"why": why, "submission": payload})
+    say("bench", f"submission refused: {why}")
+    return {"error": why}
+
+
+def check_finding(kw: dict, b: dict) -> dict:
+    """Evidence rule for the attacker: a claimed failure needs a measured FAIL."""
+    if kw.get("found_failure") and not b.get("fails"):
+        return _refuse(b, "None of your scenarios FAILED on the hardware, so this finding is not accepted. "
+                          + ("Run more scenarios to make it fail, or " if b["left"] > 0 else "")
+                          + "submit found_failure=false with what you suspected.", kw)
+    return {"received": True}
+
+
+def check_verdict(kw: dict, b: dict) -> dict:
+    """Evidence rule for the judge: reproduced=true needs a FAIL of exactly the minimal scenario."""
+    if not kw.get("reproduced"):
+        return {"received": True}
+    fails = b.get("fails", [])
+    if not fails:
+        return _refuse(b, "reproduced=true, but none of YOUR scenarios FAILED on the hardware. "
+                          + ("Run it again, or " if b["left"] > 0 else "")
+                          + "submit reproduced=false.", kw)
+    key = scenario_key(kw.get("minimal_scenario") or {})
+    if not any(scenario_key(f["scenario"] or {}) == key for f in fails):
+        return _refuse(b, "minimal_scenario must be exactly one of the scenarios you ran that FAILED. "
+                          f"Your FAILs: {json.dumps([f['scenario'] for f in fails])}", kw)
+    return {"received": True}
 
 
 def write_patch(s: Session, backend, verdict: dict, feedback: str, rnd: int, attempt: int) -> dict | None:
@@ -320,8 +403,9 @@ def verification_plan(s: Session, verdict: dict, extra: list[dict]) -> list[tupl
     """(label, scenario, required result). The fixer never chooses these."""
     plan = [("this round's failing scenario", norm(verdict.get("minimal_scenario")), "PASS")]
     for h in s.history:
-        plan.append((f"regression: round {h['round']} failure", norm(h["scenario"]), "PASS"))
-    plan += [("healthy over-voltage", norm({"faults": [], "drift_mv": 400}), "PASS"),
+        if h["fixed"]:
+            plan.append((f"regression: round {h['round']} failure", norm(h["scenario"]), "PASS"))
+    plan += [("healthy over-voltage (worst-case timing)", norm({"faults": [], "drift_mv": 400, "timing": "worst_case"}), "PASS"),
              ("healthy idle, no false trip", norm({"faults": [], "drift_mv": 0}), "PASS")]
     for x in (extra or [])[:3]:
         sc = norm(x)
@@ -335,9 +419,10 @@ def verify(s: Session, plan: list[tuple[str, dict, str]]) -> tuple[bool, list[di
     results, ok = [], True
     for label, sc, want in plan:
         say("bench", f"verify: {label}  {short(sc, 100)}")
-        r = s.run_scenario(sc["faults"], sc["drift_mv"], sc["charge_a"], sc["poll_ms"], f"verification: {label}")
+        r = s.run_scenario(sc["faults"], sc["drift_mv"], sc["charge_a"], sc["poll_ms"], f"verification: {label}",
+                           timing=sc["timing"])
         passed = r["result"] == want
-        results.append({"check": label, "required": want, **r})
+        results.append({**r, "check": label, "required": want})
         say("bench", f"   -> {verdict_text(r)}" + ("" if passed else f"   {C['bold']}<- required {want}{C['end']}"))
         ok &= passed
     return ok, results
@@ -393,6 +478,7 @@ def main() -> int:
     ap.add_argument("--scenario", choices=["healthy", "idle", "stale", "delay", "drop", "crc"],
                     help="run one hand-written scenario without AI")
     ap.add_argument("--poll-ms", type=int, default=DEFAULT_POLL_MS, help="with --scenario")
+    ap.add_argument("--timing", choices=["random", "worst_case"], default="random", help="with --scenario")
     ap.add_argument("--attack-budget", type=int, default=6)
     ap.add_argument("--judge-budget", type=int, default=4)
     ap.add_argument("--fix-attempts", type=int, default=3)
@@ -422,7 +508,8 @@ def main() -> int:
                       "delay": [{"name": "delay", "value": 300}], "drop": [{"name": "drop", "value": 60}],
                       "crc": [{"name": "crc", "value": 60}]}[args.scenario]
             drift = 0 if args.scenario == "idle" else 400
-            print(json.dumps(s.run_scenario(faults, drift, 10, args.poll_ms, f"manual: {args.scenario}"), indent=2))
+            print(json.dumps(s.run_scenario(faults, drift, 10, args.poll_ms, f"manual: {args.scenario}",
+                                            timing=args.timing), indent=2))
             return 0
 
         attacker_b, judge_b = backend_from_env(), backend_from_env("JUDGE")
@@ -436,7 +523,7 @@ def main() -> int:
                 break
             verdict = investigate(s, judge_b, finding, args.judge_budget, rnd)
             if not verdict or not verdict.get("reproduced"):
-                say("round", "the judge could not reproduce the finding: not fixing an unproven failure")
+                say("round", "the judge could not reproduce the finding on hardware: not fixing an unproven failure")
                 s.history.append({"round": rnd, "root_cause": "(not reproduced) " + finding.get("summary", ""),
                                   "scenario": norm(finding.get("scenario")), "fix": "none", "fixed": False})
                 continue

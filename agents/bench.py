@@ -51,8 +51,18 @@ BENCH_INFO = {
                            "FAIL (late trip) or FAIL no_trip (no trip within 3 s) -> faults cleared, back to baseline. "
                            "drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rule 2 "
                            "(PASS = no trip, FAIL false_trip = tripped on a healthy link).",
+    "timing": {
+        "random": "default. The drift is applied whenever the bench sends the command, so it lands at a random point "
+                  "in the controller's poll cycle. Failures that depend on timing show up only some of the time.",
+        "worst_case": "the STM32 applies the drift right after it finishes answering a read request: the controller has "
+                      "just looked and cannot see the over-voltage before its next read. Makes timing races reproducible. "
+                      "If no read reply goes out within 2 s, the drift is applied anyway (reported as drift_applied=timeout).",
+    },
     "faults": FAULTS,
 }
+
+
+TIMINGS = ("random", "worst_case")
 
 
 class BenchError(RuntimeError):
@@ -167,12 +177,16 @@ class Bench:
 
     # -- the one tool the agents get --------------------------------------
     def run_scenario(self, faults: list[dict], drift_mv: int = 400, charge_a: int = 10,
-                     observe_s: float = 4.0, controller: "PiController | None" = None) -> dict:
+                     observe_s: float = 4.0, controller: "PiController | None" = None,
+                     timing: str = "random") -> dict:
         faults = validate_faults(faults)
         drift_mv = int(max(0, min(800, drift_mv)))
         charge_a = int(max(-100, min(100, charge_a)))
+        timing = str(timing or "random").lower()
+        if timing not in TIMINGS:
+            raise BenchError(f"timing must be one of {list(TIMINGS)}")
 
-        scenario = {"faults": faults, "drift_mv": drift_mv, "charge_a": charge_a}
+        scenario = {"faults": faults, "drift_mv": drift_mv, "charge_a": charge_a, "timing": timing}
         if controller:
             scenario["poll_ms"] = controller.poll_ms
         log_mark = controller.mark() if controller else 0
@@ -196,8 +210,16 @@ class Bench:
         time.sleep(1.0)
 
         t0 = time.monotonic()
-        self.command(f"drift {drift_mv}")
-        events = self._collect(observe_s if drift_mv >= 300 else max(observe_s, 5.0))
+        window = observe_s if drift_mv >= 300 else max(observe_s, 5.0)
+        if timing == "worst_case":
+            reply = self.command(f"drift sync {drift_mv}")
+            if reply.get("ok") != f"drift sync {drift_mv}":     # old firmware reads "sync" as 0 mV
+                self.command("drift 0")
+                raise BenchError("the Nucleo firmware does not support worst_case timing: flash the latest firmware")
+            window += 2.5                                        # the drift waits for the next reply (2 s max)
+        else:
+            self.command(f"drift {drift_mv}")
+        events = self._collect(window)
         time.sleep(0.6)                     # let the controller log a little after the event
         end = self.fresh_telemetry()
         ctl_log = controller.lines_since(log_mark) if controller else []
@@ -214,6 +236,12 @@ class Bench:
             "scenario": scenario, "result": "INCONCLUSIVE", "max_cell_mv_real": max(end["cells"]),
             "limit_mv": end["limit_mv"], "deadline_ms": 500,
         }
+        if timing == "worst_case":
+            applied = next((e for e in events if e["event"] == "drift_applied"), None)
+            result["drift_applied"] = applied.get("timing") if applied else "not_seen"
+            if applied and applied.get("timing") == "timeout":
+                result["timing_note"] = ("no read reply went out for 2 s, so the drift was applied on a timeout, "
+                                         "not right after a reply")
         if verdict is None and not overvoltage:
             tripped = "spurious_trip" in names or bool(end["trip"])
             if not faults:                               # rule 2: healthy link, no over-voltage

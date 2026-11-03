@@ -83,6 +83,13 @@ static float    cmd_current_a  = 50.0f;  /* what the "charger" wants to push   *
 static uint16_t charge_limit_da = 1000;  /* written by the Pi (reg 11)          */
 static int      drift_from_pot = 0;   /* knob ignored until 'drift pot' (PA0 floats if unwired) */
 static float    manual_drift_mv = 0.0f;
+/* 'drift sync <mV>': apply the drift right after the next read reply goes out,
+ * the worst moment for a polling controller (it has just looked, and won't look
+ * again for a whole poll interval). Makes timing races reproducible. */
+#define SYNC_TIMEOUT_MS    2000u
+static uint8_t  sync_armed;
+static float    sync_drift_mv;
+static uint32_t sync_armed_ms;
 static uint16_t limit_mv       = 3650;
 static uint32_t deadline_ms    = 500;
 
@@ -315,6 +322,16 @@ static uint16_t pend_len;
 static uint8_t  pend_ov;
 static uint32_t pend_due_ms;
 
+static void apply_sync_drift(const char *how)
+{
+    sync_armed = 0;
+    drift_from_pot = 0;
+    manual_drift_mv = sync_drift_mv;
+    physics_step();          /* recompute the cells NOW: the over-voltage starts at this instant */
+    vcp_printf(1, "{\"event\":\"drift_applied\",\"drift_mv\":%d,\"timing\":\"%s\"}\r\n",
+               (int)sync_drift_mv, how);
+}
+
 static void mb_transmit(const uint8_t *frame, uint16_t len, uint8_t carries_ov)
 {
     /* Timing starts when the bad value actually goes onto the wire. */
@@ -322,7 +339,8 @@ static void mb_transmit(const uint8_t *frame, uint16_t len, uint8_t carries_ov)
         first_served_us = now_us();
         if (first_served_us == 0) first_served_us = 1;
     }
-    HAL_UART_Transmit(&huart1, (uint8_t *)frame, len, 200);
+    HAL_UART_Transmit(&huart1, (uint8_t *)frame, len, 200);   /* returns after the last stop bit */
+    if (sync_armed && len > 2 && frame[1] == 0x03u) apply_sync_drift("after_reply");
 }
 
 static void mb_send_ov(uint8_t *frame, uint16_t len_without_crc, uint8_t carries_ov)
@@ -459,7 +477,7 @@ static void mb_poll(void)
 static void print_help(void)
 {
     vcp_printf(1,
-        "{\"help\":\"status | baseline | i <amps> | drift <mV>|pot | limit <mV> | "
+        "{\"help\":\"status | baseline | i <amps> | drift <mV>|pot|sync <mV> | limit <mV> | "
         "deadline <ms> | soc <pct> | grid <V> | fault stale on|off | fault delay <ms> | "
         "fault drop <pct> | fault crc <pct> | fault clear | help\"}\r\n");
 }
@@ -522,6 +540,7 @@ static void handle_command(char *line)
         faults_clear();
         drift_from_pot = 0;
         manual_drift_mv = 0.0f;
+        sync_armed = 0;
         cmd_current_a = 10.0f;
         bat.soc = 0.50f;
         bat.grid_v = 230;
@@ -531,12 +550,24 @@ static void handle_command(char *line)
         return;
     }
     if (!arg) { vcp_printf(1, "{\"error\":\"missing value for %s\"}\r\n", cmd); return; }
+    if (!strcmp(cmd, "drift") && !strcmp(arg, "sync")) {
+        char *val = strtok(NULL, " \t");
+        if (!val) { vcp_printf(1, "{\"error\":\"drift sync needs mV\"}\r\n"); return; }
+        long mv = strtol(val, NULL, 10);
+        if (mv < -1000 || mv > 1000) { vcp_printf(1, "{\"error\":\"drift must be -1000..1000 mV\"}\r\n"); return; }
+        sync_drift_mv = (float)mv;
+        sync_armed_ms = HAL_GetTick();
+        sync_armed = 1;
+        vcp_printf(1, "{\"ok\":\"drift sync %ld\"}\r\n", mv);
+        return;
+    }
 
     long v = strtol(arg, NULL, 10);
     if (!strcmp(cmd, "i")) {
         if (v < -200 || v > 200) { vcp_printf(1, "{\"error\":\"i must be -200..200 A\"}\r\n"); return; }
         cmd_current_a = (float)v;
     } else if (!strcmp(cmd, "drift")) {
+        sync_armed = 0;
         if (!strcmp(arg, "pot")) { drift_from_pot = 1; }
         else { drift_from_pot = 0; manual_drift_mv = (float)v; }
     } else if (!strcmp(cmd, "limit")) {
@@ -650,6 +681,9 @@ void app_loop(void)
 {
     mb_poll();
     mb_send_pending();
+    /* No read reply went out (controller stopped, or every reply dropped):
+     * apply the drift anyway so the scenario still runs. */
+    if (sync_armed && HAL_GetTick() - sync_armed_ms >= SYNC_TIMEOUT_MS) apply_sync_drift("timeout");
 
     if (trip_edge_flag) {
         uint32_t edge = trip_edge_us;
