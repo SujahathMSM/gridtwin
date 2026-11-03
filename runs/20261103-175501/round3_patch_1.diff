@@ -1,0 +1,55 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -36,6 +36,16 @@
+ # (~33ms). With --poll-ms=500 this exceeds the 500ms deadline, so the
+ # internal safety period is capped regardless of the requested poll-ms.
+ MAX_SAFETY_POLL_MS = 400
++
++# Bound blocking/retry overhead for burst loss: pyserial timeout must be
++# small so single-miss gap (period + timeout) stays <500ms even at capped
++# 400ms (400+50=450 <500; 400+150=550 >500). 50ms still covers healthy
++# 29-byte frame (~30ms @9600) with margin.
++SERIAL_TIMEOUT_S = 0.05
++# Retry delay on error: retry immediately without full-period sleep so
++# persistent loss is re-probed in ~timeout+retry (~70ms), i.e. >=2 attempts
++# per 500ms even at max poll.
++ERROR_RETRY_S = 0.02
+ 
+ 
+ class ModbusError(Exception):
+@@ -136,7 +146,7 @@
+ 
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+-                        timeout=0.15)
++                        timeout=SERIAL_TIMEOUT_S)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+           f"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV", flush=True)
+     if safety_poll_ms != args.poll_ms:
+@@ -157,16 +167,19 @@
+                 errors += 1
+                 print(f"modbus error #{errors}: {e}", flush=True)
+                 now_err = time.monotonic()
+-                # Fail safe: time-based loss-of-comm (fast) plus count fallback.
++                # Fail safe on single miss: any missed reply means our view is
++                # untrusted -> trip immediately. Healthy link never misses
++                # (0 drops), so no false trips. This gives gap > period +
++                # blocking_timeout sensitivity: one missed poll trips instead
++                # of needing 2 misses (which cost 2*period+overhead >500ms).
++                # Time-based check retained as fallback.
+                 if not trip.active:
+-                    if (now_err - last_fresh) > STALE_TIMEOUT_S:
++                    if (now_err - last_fresh) > STALE_TIMEOUT_S or errors >= 1:
+                         trip.set(True)
+                         print(f"TRIP: stale/no data for {now_err - last_fresh:.2f}s (errors={errors})", flush=True)
+-                    elif errors >= 5:
+-                        trip.set(True)
+-                        print("TRIP: lost communication with the battery", flush=True)
+-                elapsed_err = time.monotonic() - t0
+-                time.sleep(max(0.0, safety_poll_s - elapsed_err))
++                # Retry immediately without full-period sleep to bound overhead:
++                # each retry costs only SERIAL_TIMEOUT_S + ERROR_RETRY_S.
++                time.sleep(ERROR_RETRY_S)
+                 continue
+ 
+             tick = regs[10]

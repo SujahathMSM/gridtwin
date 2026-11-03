@@ -1,0 +1,38 @@
+{
+  "final": {
+    "approve": true,
+    "extra_checks": [
+      {
+        "charge_a": 10,
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Rule2 at max poll: 50ms timeout must still receive healthy 30ms frame without spurious single-miss false trip, tick jumps 4-5 per poll must not look stale"
+      },
+      {
+        "charge_a": 10,
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 50,
+        "timing": "worst_case",
+        "why": "Rule2 at min poll: fast polling with 50ms timeout must never false-trip on healthy link, tick same for ~2 polls must not trigger stale nor single-miss"
+      },
+      {
+        "charge_a": 10,
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "drop",
+            "value": 70
+          }
+        ],
+        "poll_ms": 400,
+        "timing": "worst_case",
+        "why": "Rule1 at safety cap: single-miss gap 400+50=450ms must still meet 500ms deadline under same 70% burst loss that caused 547ms FAIL"
+      }
+    ],
+    "problems": []
+  },
+  "tokens": 11889
+}

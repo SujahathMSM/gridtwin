@@ -1,0 +1,91 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -24,6 +24,12 @@
+     "cell1_mv", "cell2_mv", "cell3_mv", "cell4_mv", "pack_10mv", "current_da",
+     "temp_dc", "soc_pm", "grid_v", "status", "tick", "charge_limit_da",
+ ]
++
++# Freshness fail-safe: tick (reg 10) increments every 100ms.
++# If tick is frozen for longer than this, we cannot trust cells -> trip.
++# 0.35s: > max healthy unchanged (~100ms + jitter, even at 50ms poll)
++# but short enough that detection + trip <=500ms for poll 50-500ms.
++STALE_TIMEOUT_S = 0.35
+ 
+ 
+ class ModbusError(Exception):
+@@ -122,6 +128,8 @@
+ 
+     errors = 0
+     last_print = 0.0
++    last_tick = None
++    last_fresh = time.monotonic()
+     try:
+         while True:
+             t0 = time.monotonic()
+@@ -131,26 +139,51 @@
+             except (ModbusError, serial.SerialException, OSError) as e:
+                 errors += 1
+                 print(f"modbus error #{errors}: {e}", flush=True)
+-                # Fail safe: if we lose the battery for 5 polls in a row, trip.
+-                if errors >= 5 and not trip.active:
+-                    trip.set(True)
+-                    print("TRIP: lost communication with the battery", flush=True)
++                now_err = time.monotonic()
++                # Fail safe: time-based loss-of-comm (fast) plus count fallback.
++                if not trip.active:
++                    if (now_err - last_fresh) > STALE_TIMEOUT_S:
++                        trip.set(True)
++                        print(f"TRIP: stale/no data for {now_err - last_fresh:.2f}s (errors={errors})", flush=True)
++                    elif errors >= 5:
++                        trip.set(True)
++                        print("TRIP: lost communication with the battery", flush=True)
+                 time.sleep(args.poll_ms / 1000)
+                 continue
+ 
++            tick = regs[10]
++            now = time.monotonic()
++            if last_tick is None:
++                last_tick = tick
++                last_fresh = now
++                stale = False
++            elif tick != last_tick:
++                # Any change proves freshness (allow jumps >1, 16-bit wrap via !=).
++                last_tick = tick
++                last_fresh = now
++                stale = False
++            else:
++                stale = (now - last_fresh) > STALE_TIMEOUT_S
++
+             cells = regs[0:4]
+             vmax = max(cells)
+-            if not trip.active and vmax >= args.limit_mv:
+-                trip.set(True)
+-                print(f"TRIP: cell {cells.index(vmax) + 1} at {vmax} mV "
+-                      f"(limit {args.limit_mv})", flush=True)
+-            elif trip.active and vmax < args.rearm_mv:
+-                trip.set(False)
+-                print(f"released: max cell {vmax} mV", flush=True)
+-
+-            now = time.monotonic()
+-            if now - last_print >= 1.0:
+-                last_print = now
++            if not trip.active:
++                if vmax >= args.limit_mv:
++                    trip.set(True)
++                    print(f"TRIP: cell {cells.index(vmax) + 1} at {vmax} mV "
++                          f"(limit {args.limit_mv})", flush=True)
++                elif stale:
++                    trip.set(True)
++                    print(f"TRIP: stale tick frozen at {tick} for {now - last_fresh:.2f}s", flush=True)
++            else:
++                # Latched: only release on fresh data showing all cells < rearm.
++                if not stale and vmax < args.rearm_mv:
++                    trip.set(False)
++                    print(f"released: max cell {vmax} mV", flush=True)
++
++            now2 = time.monotonic()
++            if now2 - last_print >= 1.0:
++                last_print = now2
+                 print(f"cells={cells} mV  I={to_signed(regs[5]) / 10:.1f} A  "
+                       f"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  "
+                       f"tick={regs[10]}  trip={'ON' if trip.active else 'off'}", flush=True)

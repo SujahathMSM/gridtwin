@@ -1,0 +1,38 @@
+{
+  "final": {
+    "approve": true,
+    "extra_checks": [
+      {
+        "charge_a": 10,
+        "drift_mv": 400,
+        "faults": [],
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Minimal failing scenario repeat: healthy link poll500 worst_case must trip <=500ms with capped 400ms period (~433ms expected). Would FAIL at ~503ms if cap not applied."
+      },
+      {
+        "charge_a": 10,
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Rule2 no false trip: faster capped polling must not trip on healthy link with no OV."
+      },
+      {
+        "charge_a": 10,
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Preserves Round1: frozen tick must still fail-safe trip within 500ms with new 400ms period and latch."
+      }
+    ],
+    "problems": []
+  },
+  "tokens": 11157
+}

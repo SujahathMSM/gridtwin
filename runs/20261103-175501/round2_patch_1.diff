@@ -1,0 +1,57 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -30,6 +30,12 @@
+ # 0.35s: > max healthy unchanged (~100ms + jitter, even at 50ms poll)
+ # but short enough that detection + trip <=500ms for poll 50-500ms.
+ STALE_TIMEOUT_S = 0.35
++
++# Safety deadline cap: worst-case OV right after a reply is invisible until
++# the next read completes, so latency ~= effective period + read overhead
++# (~33ms). With --poll-ms=500 this exceeds the 500ms deadline, so the
++# internal safety period is capped regardless of the requested poll-ms.
++MAX_SAFETY_POLL_MS = 400
+ 
+ 
+ class ModbusError(Exception):
+@@ -120,11 +126,22 @@
+     ap.add_argument("--no-gpio", action="store_true", help="don't touch GPIO (for testing)")
+     args = ap.parse_args()
+ 
++    # Effective safety poll period: honor --poll-ms when fast, but cap at
++    # MAX_SAFETY_POLL_MS so the 500ms hardware deadline holds over the full
++    # deployment range (50-500ms) even with worst-case after_reply phasing
++    # and ~33ms Modbus overhead. Faster polling does not cause false trips:
++    # staleness is wall-time based (STALE_TIMEOUT_S).
++    safety_poll_ms = min(args.poll_ms, MAX_SAFETY_POLL_MS)
++    safety_poll_s = safety_poll_ms / 1000.0
++
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+                         timeout=0.15)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+           f"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV", flush=True)
++    if safety_poll_ms != args.poll_ms:
++        print(f"controller: safety poll capped to {safety_poll_ms} ms "
++              f"(requested {args.poll_ms} ms) to meet 500ms deadline", flush=True)
+ 
+     errors = 0
+     last_print = 0.0
+@@ -148,7 +165,8 @@
+                     elif errors >= 5:
+                         trip.set(True)
+                         print("TRIP: lost communication with the battery", flush=True)
+-                time.sleep(args.poll_ms / 1000)
++                elapsed_err = time.monotonic() - t0
++                time.sleep(max(0.0, safety_poll_s - elapsed_err))
+                 continue
+ 
+             tick = regs[10]
+@@ -189,7 +207,7 @@
+                       f"tick={regs[10]}  trip={'ON' if trip.active else 'off'}", flush=True)
+ 
+             elapsed = time.monotonic() - t0
+-            time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))
++            time.sleep(max(0.0, safety_poll_s - elapsed))
+     except KeyboardInterrupt:
+         pass
+     finally:

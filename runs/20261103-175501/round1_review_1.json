@@ -1,0 +1,35 @@
+{
+  "final": {
+    "approve": true,
+    "extra_checks": [
+      {
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 50,
+        "timing": "worst_case",
+        "why": "Healthy link at fastest poll must never trip: tick advances every 100ms so 1-2 polls may see same tick, timeout 0.35s must not false-trip"
+      },
+      {
+        "drift_mv": 250,
+        "faults": [],
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Healthy link at slowest poll must never trip: interval 500ms exceeds 0.35s timeout but tick jumps ~5 per poll so != proves freshness"
+      },
+      {
+        "drift_mv": 400,
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Stale frozen tick with minimal over-voltage at slowest poll must still trip within 500ms via fail-safe latch"
+      }
+    ],
+    "problems": []
+  },
+  "tokens": 10698
+}

@@ -1,0 +1,205 @@
+[
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3694,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "not_seen",
+    "latency_ms": 0.0,
+    "until_reported_ms": 0.0,
+    "reaction_ms": 0.0,
+    "note": "controller was already tripped before the over-voltage (safe state)",
+    "modbus_link": {
+      "polls_answered": 9,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: stale tick frozen at 4323 for 0.40s",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.0%  tick=4323  trip=ON",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.0%  tick=4323  trip=ON"
+    ],
+    "elapsed_s": 1.3,
+    "hypothesis": "verification: this round's failing scenario",
+    "check": "this round's failing scenario",
+    "required": "PASS"
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3694,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 203.4,
+    "until_reported_ms": 169.8,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 10,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.0%  tick=4350  trip=off",
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.2 C  SOC=50.2%  tick=4361  trip=ON"
+    ],
+    "elapsed_s": 1.5,
+    "hypothesis": "verification: healthy over-voltage (worst-case timing)",
+    "check": "healthy over-voltage (worst-case timing)",
+    "required": "PASS"
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3296,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "healthy idle, no false trip",
+    "modbus_link": {
+      "polls_answered": 33,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.1%  tick=4381  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.2%  tick=4391  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.4%  tick=4401  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.2 C  SOC=50.6%  tick=4411  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.2 C  SOC=50.7%  tick=4421  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.2 C  SOC=50.9%  tick=4431  trip=off"
+    ],
+    "elapsed_s": 5.7,
+    "hypothesis": "verification: healthy idle, no false trip",
+    "required": "PASS"
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 250,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3546,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "check": "judge's check: Healthy link at fastest poll must never trip: tick advances every 100m",
+    "modbus_link": {
+      "polls_answered": 183,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.1%  tick=4473  trip=off",
+      "cells=[3285, 3288, 3291, 3544] mV  I=10.0 A  T=30.2 C  SOC=50.3%  tick=4484  trip=off",
+      "cells=[3285, 3288, 3291, 3544] mV  I=10.0 A  T=30.2 C  SOC=50.4%  tick=4494  trip=off",
+      "cells=[3286, 3289, 3292, 3545] mV  I=10.0 A  T=30.2 C  SOC=50.6%  tick=4504  trip=off",
+      "cells=[3286, 3289, 3292, 3545] mV  I=10.0 A  T=30.2 C  SOC=50.8%  tick=4514  trip=off",
+      "cells=[3286, 3289, 3292, 3545] mV  I=10.0 A  T=30.2 C  SOC=50.9%  tick=4524  trip=off",
+      "cells=[3287, 3290, 3293, 3546] mV  I=10.0 A  T=30.2 C  SOC=51.1%  tick=4534  trip=off",
+      "cells=[3287, 3290, 3293, 3546] mV  I=10.0 A  T=30.2 C  SOC=51.3%  tick=4544  trip=off",
+      "cells=[3287, 3290, 3293, 3546] mV  I=10.0 A  T=30.2 C  SOC=51.4%  tick=4554  trip=off"
+    ],
+    "elapsed_s": 8.3,
+    "hypothesis": "verification: judge's check: Healthy link at fastest poll must never trip: tick advances every 100m",
+    "required": "PASS"
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 250,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 500
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3546,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "check": "judge's check: Healthy link at slowest poll must never trip: interval 500ms exceeds 0",
+    "modbus_link": {
+      "polls_answered": 18,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.1%  tick=4589  trip=off",
+      "cells=[3285, 3288, 3291, 3544] mV  I=10.0 A  T=30.2 C  SOC=50.3%  tick=4600  trip=off",
+      "cells=[3285, 3288, 3291, 3544] mV  I=10.0 A  T=30.2 C  SOC=50.4%  tick=4610  trip=off",
+      "cells=[3286, 3289, 3292, 3545] mV  I=10.0 A  T=30.2 C  SOC=50.6%  tick=4620  trip=off",
+      "cells=[3286, 3289, 3292, 3545] mV  I=10.0 A  T=30.2 C  SOC=50.8%  tick=4630  trip=off",
+      "cells=[3286, 3289, 3292, 3545] mV  I=10.0 A  T=30.2 C  SOC=50.9%  tick=4640  trip=off",
+      "cells=[3287, 3290, 3293, 3546] mV  I=10.0 A  T=30.2 C  SOC=51.1%  tick=4650  trip=off",
+      "cells=[3287, 3290, 3293, 3546] mV  I=10.0 A  T=30.2 C  SOC=51.3%  tick=4660  trip=off",
+      "cells=[3287, 3290, 3293, 3546] mV  I=10.0 A  T=30.2 C  SOC=51.4%  tick=4670  trip=off"
+    ],
+    "elapsed_s": 8.2,
+    "hypothesis": "verification: judge's check: Healthy link at slowest poll must never trip: interval 500ms exceeds 0",
+    "required": "PASS"
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 500
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3694,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "not_seen",
+    "latency_ms": 0.0,
+    "until_reported_ms": 0.0,
+    "reaction_ms": 0.0,
+    "note": "controller was already tripped before the over-voltage (safe state)",
+    "modbus_link": {
+      "polls_answered": 4,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.0%  tick=4676  trip=off",
+      "TRIP: stale tick frozen at 4676 for 0.50s",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.0%  tick=4676  trip=ON"
+    ],
+    "elapsed_s": 1.6,
+    "hypothesis": "verification: judge's check: Stale frozen tick with minimal over-voltage at slowest poll must still",
+    "check": "judge's check: Stale frozen tick with minimal over-voltage at slowest poll must still",
+    "required": "PASS"
+  }
+]
