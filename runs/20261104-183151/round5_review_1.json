@@ -1,0 +1,39 @@
+{
+  "final": {
+    "approve": true,
+    "problems": [],
+    "extra_checks": [
+      {
+        "faults": [],
+        "drift_mv": 0,
+        "why": "Healthy link must never trip - exposes inverted idle LOW if polarity still wrong or heartbeat missing",
+        "poll_ms": 200,
+        "timing": "random"
+      },
+      {
+        "faults": [
+          {
+            "name": "drop",
+            "value": "5"
+          },
+          {
+            "name": "crc",
+            "value": "5"
+          }
+        ],
+        "drift_mv": 0,
+        "why": "Light noise <=5% each must not cause nuisance trip - exposes single-miss trip or bad debounce",
+        "poll_ms": 500,
+        "timing": "random"
+      },
+      {
+        "faults": [],
+        "drift_mv": 400,
+        "why": "Over-voltage at max poll worst-case phasing must still trip <500ms with correct HIGH=permissive LOW=trip and heartbeat",
+        "poll_ms": 500,
+        "timing": "worst_case"
+      }
+    ]
+  },
+  "tokens": 13855
+}

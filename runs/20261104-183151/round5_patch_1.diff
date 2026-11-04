@@ -1,0 +1,127 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -15,6 +15,7 @@
+ import argparse
+ import sys
+ import time
++import threading
+ 
+ import serial  # pip install pyserial
+ 
+@@ -55,6 +56,10 @@
+ # per 500ms even at max poll.
+ ERROR_RETRY_S = 0.02
+ 
++# Failsafe interlock pins (BCM numbering).
++HEARTBEAT_PIN = 24
++HEARTBEAT_INTERVAL_S = 0.10
++
+ 
+ class ModbusError(Exception):
+     pass
+@@ -117,19 +122,70 @@
+ 
+ 
+ class TripLine:
+-    """GPIO23 safety-trip output. Falls back to a dummy when --no-gpio is set."""
++    """Failsafe trip output on GPIO23: HIGH=permissive (battery allowed),
++    LOW=trip. Falls back to a dummy when --no-gpio is set.
++
++    API preserved: set(True) = TRIP (drive LOW, latched), set(False) =
++    release/permissive (drive HIGH). Starts HIGH so idle healthy link is
++    permissive.
++    """
+ 
+     def __init__(self, pin: int, enabled: bool):
+         self._dev = None
+         if enabled:
+             from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere
+-            self._dev = OutputDevice(pin, active_high=True, initial_value=False)
++            # initial_value=True -> HIGH (permissive) immediately, no LOW glitch.
++            self._dev = OutputDevice(pin, active_high=True, initial_value=True)
+         self.active = False
+ 
+     def set(self, on: bool) -> None:
+         self.active = on
+         if self._dev is not None:
+-            self._dev.on() if on else self._dev.off()
++            # Inverted for failsafe: trip (on=True) drives LOW, release drives HIGH.
++            if on:
++                self._dev.off()
++            else:
++                self._dev.on()
++
++
++class Heartbeat:
++    """GPIO24 heartbeat: must change level at least every 250ms while alive.
++    Runs on a daemon thread so Modbus blocking/sleep never stalls it.
++    Dummy when --no-gpio is set."""
++
++    def __init__(self, pin: int, enabled: bool, interval: float = HEARTBEAT_INTERVAL_S):
++        self._dev = None
++        self._enabled = enabled
++        self._interval = interval
++        self._stop = threading.Event()
++        self._thread = None
++        if enabled:
++            from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere
++            self._dev = OutputDevice(pin, active_high=True, initial_value=False)
++
++    def _loop(self) -> None:
++        while not self._stop.is_set():
++            try:
++                if self._dev is not None:
++                    self._dev.toggle()
++            except Exception:
++                pass
++            self._stop.wait(self._interval)
++
++    def start(self) -> None:
++        if not self._enabled:
++            return
++        self._thread = threading.Thread(target=self._loop, daemon=True)
++        self._thread.start()
++
++    def stop(self) -> None:
++        self._stop.set()
++        # Leave pin LOW (failsafe) on clean exit; absence of toggling also trips.
++        try:
++            if self._dev is not None:
++                self._dev.off()
++        except Exception:
++            pass
+ 
+ 
+ def main() -> int:
+@@ -154,6 +210,8 @@
+     safety_poll_s = safety_poll_ms / 1000.0
+ 
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
++    hb = Heartbeat(HEARTBEAT_PIN, enabled=not args.no_gpio)
++    hb.start()
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+                         timeout=SERIAL_TIMEOUT_S)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+@@ -235,8 +293,20 @@
+     except KeyboardInterrupt:
+         pass
+     finally:
+-        trip.set(False)
+-        ser.close()
++        # Failsafe exit: leave GPIO23 LOW (= trip) and stop heartbeat
++        # (no toggle = interlock opens). Running controller holds HIGH + toggle.
++        try:
++            trip.set(True)
++        except Exception:
++            pass
++        try:
++            hb.stop()
++        except Exception:
++            pass
++        try:
++            ser.close()
++        except Exception:
++            pass
+     return 0
+ 
+ 

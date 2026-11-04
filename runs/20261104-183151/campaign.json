@@ -1,0 +1,92 @@
+[
+  {
+    "round": 1,
+    "rule": "1_trip_in_time",
+    "root_cause": "Controller never validates freshness counter (reg 10 tick). With stale=on BMS returns well-formed but frozen frames, so no ModbusError, errors counter stays 0 and loss-of-comm fail-safe never fires, and vmax from frozen cells stays ~3294mV <3650 so over-voltage branch never fires while real cell rises to >3650mV. Result: no trip within 3s.",
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "poll_ms": 200,
+      "timing": "worst_case"
+    },
+    "fix": "Fail-safe on frozen tick: track regs[10] every poll, allow any change (wrap-safe), trip if unchanged for >0.35s wall-time, latch trip while stale (only re-arm on fresh data with all cells < rearm). Timeout 0.35s meets 500ms deadline for poll 50-500ms without false-tripping on healthy 50ms (tick period 100ms) or 500ms (tick jumps 5/poll) links. Also time-based trip on comm-loss.",
+    "fixed": true,
+    "fix_attempts": 1
+  },
+  {
+    "round": 2,
+    "rule": "1_trip_in_time",
+    "root_cause": "Sequential poll-sleep loop: each iteration does blocking Modbus read (~33ms) then sleeps poll_ms-minus-elapsed. Worst-case OV occurring right after a reply (after_reply) is invisible until next read completes, so detection latency ~= poll_ms + read/processing overhead. At max allowed poll_ms=500 this is ~469ms until reported +33.6ms reaction =503ms >500ms deadline. No fault handling involved; healthy-link base latency alone exceeds deadline. Prior claim that 0.35s stale timeout meets deadline for poll 50-500ms ignored this base period.",
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "poll_ms": 500,
+      "timing": "worst_case"
+    },
+    "fix": "Cap effective safety poll period to 400ms regardless of --poll-ms (up to 500ms) so worst-case after_reply detection latency (~period+33ms overhead) stays <500ms. Uses min(args.poll_ms,400) for both normal and error-path sleeps with elapsed subtraction. Preserves Round1 frozen-tick 0.35s wall-time trip, comm-loss time-based trip, latching/rearm logic, and no false trips (faster polling is safe for stale detector).",
+    "fixed": true,
+    "fix_attempts": 1
+  },
+  {
+    "round": 3,
+    "rule": "1_trip_in_time",
+    "root_cause": "Fixed 0.35s wall-time loss-of-comm timer plus 0.15s blocking read plus full-period error sleep requires 2 consecutive ~220ms drop cycles to fire (single-miss gap ~period+0.12=0.34s <0.35s so no trip). With worst_case OV just after a success (last_fresh reset), 2 post-OV drops (p^2=49% at 70%) hide OV sighting and delay fail-safe to 0.54s, giving OV-to-trip 547.3ms >500ms. Neither 400ms period cap nor 0.35s timer covers burst loss because latency ~=2*period+timeout overhead.",
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 70
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "poll_ms": 220,
+      "timing": "worst_case"
+    },
+    "fix": "Fix burst-loss deadline: single-miss fail-safe (trip on first missed reply, healthy never misses so no false trips), reduce blocking timeout 0.15->0.05s so single-miss gap ~period+50ms, retry immediately on error (20ms not full period) to bound overhead and allow >=2 attempts/500ms. Preserves frozen-tick 0.35s detector, latch-while-stale re-arm, and 400ms safety-period cap.",
+    "fixed": true,
+    "fix_attempts": 1
+  },
+  {
+    "round": 4,
+    "rule": "2_no_false_trips",
+    "root_cause": "Round 3 introduced unconditional single-miss fail-safe: `if (now_err-last_fresh)>STALE_TIMEOUT_S or errors>=1: trip`. This trips on any ModbusError (timeout on drop, bad CRC on crc) immediately, even when tick is fresh. Rule 2b explicitly allows light noise (drop and/or crc each <=5%) with no over-voltage and requires NO trip. Healthy link never misses so authors assumed `errors>=1` was safe, but allowed 1-5% loss unavoidably causes single isolated misses and thus forbidden nuisance trips, while re-arm logic then releases, producing repeated trips.",
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": "1"
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "poll_ms": 50,
+      "timing": "random"
+    },
+    "fix": "Fix Round3 single-miss nuisance trip: remove `errors>=1` immediate trip, keep only wall-time `(now-last_fresh)>STALE_TIMEOUT` debounced fail-safe. Reduce safety-period cap 400->120ms so persistent loss still trips <500ms with fast retry (Pc+5*70~470ms) while isolated 1-3 misses (gap 100-310ms) stay below 0.40s timeout, giving no trips on <=5% drop/crc across 50-500ms. Bump STALE_TIMEOUT 0.35->0.40s to require 4-5 consecutive misses (prob ~1e-4) for light-noise immunity while still meeting deadline and stale detection. Preserves tick freshness, latch-while-stale, 50ms timeout +20ms retry, CLI.",
+    "fixed": true,
+    "fix_attempts": 1
+  },
+  {
+    "round": 5,
+    "rule": "2_no_false_trips",
+    "root_cause": "Failsafe-interlock polarity mismatch + missing heartbeat. Bench interlock_in_use=failsafe requires GPIO23 HIGH=permissive (battery allowed), LOW/cut/unpowered=trip, plus GPIO24 toggled every 250ms. Controller still implements legacy: TripLine uses OutputDevice(pin, active_high=True, initial_value=False) so idle holds LOW which is trip under failsafe, TripLine.set(True) drives HIGH which is permissive (inverts Rule1), TripLine.set(False) drives LOW, and GPIO24 heartbeat is never instantiated/toggled. Thus healthy NO-OV idle immediately violates interlock (\"keeps interlock open at idle (even after restart)\") despite correct internal detection logic.",
+    "scenario": {
+      "faults": [],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "poll_ms": 200,
+      "timing": "random"
+    },
+    "fix": "none",
+    "fixed": false,
+    "fix_attempts": null
+  }
+]

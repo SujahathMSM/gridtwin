@@ -65,6 +65,8 @@ def short(obj, n: int = 160) -> str:
 
 
 def verdict_text(r: dict) -> str:
+    if r.get("failure") == "premature_release":
+        return f"{r['result']} (premature_release: {r.get('detail', '')[:90]})"
     if "latency_ms" in r:
         return f"{r['result']} {r['latency_ms']} ms" + (" (already tripped)" if r.get("note") else "")
     if r.get("failure"):
@@ -356,7 +358,8 @@ def check_verdict(kw: dict, b: dict) -> dict:
     return {"received": True}
 
 
-def write_patch(s: Session, backend, verdict: dict, feedback: str, rnd: int, attempt: int) -> dict | None:
+def write_patch(s: Session, backend, verdict: dict, feedback: str, rnd: int, attempt: int,
+                previous: str | None = None) -> dict | None:
     say("fixer", f"start ({backend.label}), attempt {attempt}")
     tools = [Tool("submit_patch", "Submit the complete patched controller source.",
                   obj({"explanation": {"type": "string"},
@@ -368,6 +371,9 @@ def write_patch(s: Session, backend, verdict: dict, feedback: str, rnd: int, att
             f"\n\nCurrent controller source:\n```python\n{s.source}\n```")
     if feedback:
         task += f"\n\nYour previous patch was rejected:\n{feedback}"
+    if previous:
+        task += ("\n\nYour previous patched source (it was NOT deployed; improve it or start again from the "
+                 f"current source above):\n```python\n{previous}\n```")
     run = run_agent(backend, "fixer", FIXER, task, tools, max_turns=4, on_event=on_event)
     s.save(f"round{rnd}_fixer_{attempt}.json", {"final": run.final, "tokens": run.tokens})
     return run.final
@@ -531,9 +537,11 @@ def verify(s: Session, plan: list[tuple[str, dict, str]]) -> tuple[bool, list[di
 
 
 def fix_round(s: Session, fix_b, judge_b, verdict: dict, rnd: int, attempts: int) -> dict | None:
-    feedback = ""
+    feedback, previous = "", None
     for attempt in range(1, attempts + 1):
-        patch = write_patch(s, fix_b, verdict, feedback, rnd, attempt)
+        patch = write_patch(s, fix_b, verdict, feedback, rnd, attempt, previous)
+        if patch and patch.get("patched_source"):
+            previous = patch["patched_source"]
         if not patch:
             feedback = "No patch was submitted."
             continue
@@ -562,8 +570,9 @@ def fix_round(s: Session, fix_b, judge_b, verdict: dict, rnd: int, attempts: int
             s.source = patch["patched_source"]
             s.save(f"round{rnd}_controller.py", s.source)
             return {"patch": patch, "review": review, "verification": results, "attempts": attempt}
-        failed = [({"check": "a held-out check (hidden from the agents)", "result": r["result"],
-                    "failure": r.get("failure")} if r["check"].startswith("held-out:") else
+        failed = [({"check": "a held-out check (hidden from the agents: its scenario is not shown)",
+                    "result": r["result"], "failure": r.get("failure"), "detail": r.get("detail"),
+                    "latency_ms": r.get("latency_ms")} if r["check"].startswith("held-out:") else
                    {"check": r["check"], "result": r["result"], "failure": r.get("failure"),
                     "detail": r.get("detail"), "scenario": r.get("scenario"),
                     "controller_log": r.get("controller_log", [])[-8:]})
@@ -592,7 +601,7 @@ def main() -> int:
     ap.add_argument("--repeats", type=int, default=CONFIG["repeats"], help="runs per random verification check")
     ap.add_argument("--attack-budget", type=int, default=6)
     ap.add_argument("--judge-budget", type=int, default=4)
-    ap.add_argument("--fix-attempts", type=int, default=3)
+    ap.add_argument("--fix-attempts", type=int, default=5)
     args = ap.parse_args()
 
     port, host = os.environ.get("NUCLEO_PORT", "COM5"), os.environ.get("PI_SSH", "")
