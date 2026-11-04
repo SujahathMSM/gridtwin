@@ -39,16 +39,26 @@ class Backend:
         return f"{self.model} via {'Meta Model API' if self.kind == 'meta' else 'Baseten (open weights)'}"
 
 
-def backend_from_env(prefix: str = "") -> Backend:
-    """prefix "" -> MODEL_API_* (Muse Spark); prefix "JUDGE" may point at Baseten."""
-    provider = os.environ.get(f"{prefix}_PROVIDER" if prefix else "PROVIDER", "meta").lower()
+def backend_from_env(role: str = "") -> Backend:
+    """Pick the model for one agent role from .env.
+
+    <ROLE>_PROVIDER = meta | baseten   (falls back to PROVIDER, then meta)
+    <ROLE>_MODEL    = model id         (falls back to the provider's default below)
+    meta    -> MODEL_API_KEY,    MUSE_SPARK_MODEL      (default muse-spark-1.3)
+    baseten -> BASETEN_API_KEY,  MUSE_SPARK_OPEN_MODEL (open weights)
+    """
+    env = os.environ
+    role = role.upper()
+    provider = (env.get(f"{role}_PROVIDER") if role else None) or env.get("PROVIDER") or "meta"
+    provider = provider.lower()
+    model = env.get(f"{role}_MODEL") if role else None
     if provider == "baseten":
-        return Backend("baseten", os.environ.get("MUSE_SPARK_OPEN_MODEL", "meta-models/muse-spark-open-1026"),
-                       OpenAI(base_url=os.environ.get("BASETEN_API_BASE", "https://inference.baseten.co/v1"),
-                              api_key=os.environ["BASETEN_API_KEY"]))
-    return Backend("meta", os.environ.get("MUSE_SPARK_MODEL", "muse-spark-1.3"),
-                   OpenAI(base_url=os.environ.get("MODEL_API_BASE", "https://api.meta.ai/v1"),
-                          api_key=os.environ["MODEL_API_KEY"]))
+        return Backend("baseten", model or env.get("MUSE_SPARK_OPEN_MODEL", "meta-models/muse-spark-open"),
+                       OpenAI(base_url=env.get("BASETEN_API_BASE", "https://inference.baseten.co/v1"),
+                              api_key=env["BASETEN_API_KEY"]))
+    return Backend("meta", model or env.get("MUSE_SPARK_MODEL", "muse-spark-1.3"),
+                   OpenAI(base_url=env.get("MODEL_API_BASE", "https://api.meta.ai/v1"),
+                          api_key=env["MODEL_API_KEY"]))
 
 
 @dataclass
@@ -133,7 +143,7 @@ def run_agent(backend: Backend, name: str, instructions: str, task: str, tools: 
                              {"role": "user", "content": "Finish by calling your submit tool with your result."}]
                 continue
             break
-        messages.append({"role": "assistant", "content": msg.content or "",
+        messages.append({"role": "assistant", "content": msg.content or None,
                          "tool_calls": [{"id": c.id, "type": "function",
                                          "function": {"name": c.function.name, "arguments": c.function.arguments}}
                                         for c in msg.tool_calls]})

@@ -27,7 +27,16 @@ FAULTS = {
     "delay": {"min": 0, "max": 2000, "unit": "ms", "doc": "every Modbus reply is sent this many ms late"},
     "drop":  {"min": 0, "max": 100, "unit": "%", "doc": "this percentage of Modbus requests get no reply"},
     "crc":   {"min": 0, "max": 100, "unit": "%", "doc": "this percentage of Modbus replies carry a corrupted CRC"},
+    "burst": {"min": 0, "max": 10, "unit": "replies", "doc": "exactly this many read replies are lost right after cell 4 is pushed "
+              "up (an interference burst). Deterministic: combined with timing=worst_case it reproduces every time"},
 }
+
+# Occasional noise a real RS-485 line always has. Rule 2b: no trip for this alone.
+LIGHT_NOISE_MAX_PCT = 5
+
+
+def is_light_noise(faults: list[dict]) -> bool:
+    return bool(faults) and all(f["name"] in ("drop", "crc") and int(f["value"]) <= LIGHT_NOISE_MAX_PCT for f in faults)
 
 BENCH_INFO = {
     "battery": "4-cell LiFePO4 pack, 100 Ah, emulated by an STM32 (physics at 60x real time)",
@@ -42,15 +51,20 @@ BENCH_INFO = {
         "1_trip_in_time": "When any cell reaches 3650 mV, the controller must raise its trip line (GPIO23) within 500 ms. "
                           "The STM32 timestamps the over-voltage and the trip edge in hardware (1 us resolution).",
         "2_no_false_trips": "On a healthy link with no over-voltage, the controller must never trip: a false trip shuts the site "
-                            "down. (With faults active and no over-voltage, a fail-safe trip is acceptable.)",
+                            "down.",
+        "2b_no_nuisance_trips": f"Real RS-485 lines lose or corrupt the odd reply. With light noise only (drop and/or crc, each "
+                                f"<= {LIGHT_NOISE_MAX_PCT} %) and no over-voltage, the controller must not trip either. "
+                                "With heavier faults (stale data, delays, bursts, > 5 % loss) and no over-voltage, a fail-safe "
+                                "trip is acceptable.",
     },
     "controller_deployment": "The controller runs with --poll-ms between 50 and 500 ms depending on the site; "
                              "the default is 200 ms. Both safety rules must hold across that whole range.",
     "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V, controller restarted if poll_ms changed) -> faults applied "
                            "-> after 1 s, cell 4 is pushed up by drift_mv -> the STM32 reports PASS (trip within deadline), "
                            "FAIL (late trip) or FAIL no_trip (no trip within 3 s) -> faults cleared, back to baseline. "
-                           "drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rule 2 "
-                           "(PASS = no trip, FAIL false_trip = tripped on a healthy link).",
+                           "drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rules 2 and 2b "
+                           "(PASS = no trip, FAIL false_trip / nuisance_trip). Runs without an over-voltage watch the "
+                           "controller for 5 s (10 s with light noise).",
     "timing": {
         "random": "default. The drift is applied whenever the bench sends the command, so it lands at a random point "
                   "in the controller's poll cycle. Failures that depend on timing show up only some of the time.",
@@ -180,8 +194,12 @@ class Bench:
                      observe_s: float = 4.0, controller: "PiController | None" = None,
                      timing: str = "random") -> dict:
         faults = validate_faults(faults)
-        drift_mv = int(max(0, min(800, drift_mv)))
-        charge_a = int(max(-100, min(100, charge_a)))
+        try:                                  # models sometimes send numbers as strings
+            drift_mv, charge_a = int(float(drift_mv)), int(float(charge_a))
+        except (TypeError, ValueError):
+            raise BenchError("drift_mv and charge_a must be numbers")
+        drift_mv = max(0, min(800, drift_mv))
+        charge_a = max(-100, min(100, charge_a))
         timing = str(timing or "random").lower()
         if timing not in TIMINGS:
             raise BenchError(f"timing must be one of {list(TIMINGS)}")
@@ -210,7 +228,7 @@ class Bench:
         time.sleep(1.0)
 
         t0 = time.monotonic()
-        window = observe_s if drift_mv >= 300 else max(observe_s, 5.0)
+        window = observe_s if drift_mv >= 300 else max(observe_s, 10.0 if is_light_noise(faults) else 5.0)
         if timing == "worst_case":
             reply = self.command(f"drift sync {drift_mv}")
             if reply.get("ok") != f"drift sync {drift_mv}":     # old firmware reads "sync" as 0 mV
@@ -250,6 +268,12 @@ class Bench:
                                   detail="no over-voltage and a healthy link, but the controller tripped")
                 else:
                     result.update(result="PASS", check="no false trip on a healthy link")
+            elif is_light_noise(faults):                 # rule 2b: light noise, no over-voltage
+                if tripped:
+                    result.update(result="FAIL", failure="nuisance_trip",
+                                  detail="only light noise and no over-voltage, but the controller tripped")
+                else:
+                    result.update(result="PASS", check="no nuisance trip under light noise")
             else:
                 result.update(result="NO_OVERVOLTAGE",
                               observation=("controller tripped (fail-safe, acceptable with faults active)"
@@ -290,7 +314,7 @@ def validate_faults(faults: list[dict]) -> list[dict]:
                 raise BenchError(f"fault {name} takes {spec['values']}")
         else:
             try:
-                val = int(val)
+                val = int(float(val))
             except (TypeError, ValueError):
                 raise BenchError(f"fault {name} needs a number {spec['min']}..{spec['max']}")
             if not spec["min"] <= val <= spec["max"]:

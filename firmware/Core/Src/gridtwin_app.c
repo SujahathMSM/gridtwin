@@ -192,6 +192,8 @@ static uint32_t flt_delay_ms;              /* answer every request this late    
 static uint8_t  flt_drop_pct;              /* ignore this % of requests                */
 static uint8_t  flt_crc_pct;               /* break the CRC on this % of replies       */
 static uint32_t flt_dropped, flt_corrupted;
+static uint8_t  flt_burst;                 /* drop exactly this many read replies...   */
+static uint8_t  burst_left;                /* ...right after the drift is applied      */
 static uint32_t rng_state = 0x1234567u;
 
 static uint8_t rand_pct(void)              /* xorshift32: cheap, good enough for faults */
@@ -327,6 +329,7 @@ static void apply_sync_drift(const char *how)
     sync_armed = 0;
     drift_from_pot = 0;
     manual_drift_mv = sync_drift_mv;
+    burst_left = flt_burst;
     physics_step();          /* recompute the cells NOW: the over-voltage starts at this instant */
     vcp_printf(1, "{\"event\":\"drift_applied\",\"drift_mv\":%d,\"timing\":\"%s\"}\r\n",
                (int)sync_drift_mv, how);
@@ -350,6 +353,7 @@ static void mb_send_ov(uint8_t *frame, uint16_t len_without_crc, uint8_t carries
     frame[len_without_crc + 1] = (uint8_t)(crc >> 8);
     uint16_t len = (uint16_t)(len_without_crc + 2u);
 
+    if (burst_left && frame[1] == 0x03u) { burst_left--; flt_dropped++; return; }   /* deterministic burst */
     if (flt_drop_pct && rand_pct() < flt_drop_pct) { flt_dropped++; return; }
     if (flt_crc_pct && rand_pct() < flt_crc_pct) {
         frame[len_without_crc] ^= 0x5Au;              /* flip bits in the CRC */
@@ -479,7 +483,7 @@ static void print_help(void)
     vcp_printf(1,
         "{\"help\":\"status | baseline | i <amps> | drift <mV>|pot|sync <mV> | limit <mV> | "
         "deadline <ms> | soc <pct> | grid <V> | fault stale on|off | fault delay <ms> | "
-        "fault drop <pct> | fault crc <pct> | fault clear | help\"}\r\n");
+        "fault drop <pct> | fault crc <pct> | fault burst <n> | fault clear | help\"}\r\n");
 }
 
 static void faults_clear(void)
@@ -488,6 +492,8 @@ static void faults_clear(void)
     flt_delay_ms = 0;
     flt_drop_pct = 0;
     flt_crc_pct = 0;
+    flt_burst = 0;
+    burst_left = 0;
     pend_len = 0;
 }
 
@@ -519,6 +525,10 @@ static void handle_fault(const char *what, const char *val)
     } else if (!strcmp(what, "crc")) {
         if (v < 0 || v > 100) { vcp_printf(1, "{\"error\":\"crc must be 0..100 %%\"}\r\n"); return; }
         flt_crc_pct = (uint8_t)v;
+    } else if (!strcmp(what, "burst")) {
+        if (v < 0 || v > 10) { vcp_printf(1, "{\"error\":\"burst must be 0..10 replies\"}\r\n"); return; }
+        flt_burst = (uint8_t)v;
+        burst_left = 0;                    /* armed by the next drift command */
     } else {
         vcp_printf(1, "{\"error\":\"unknown fault %s\"}\r\n", what);
         return;
@@ -569,7 +579,7 @@ static void handle_command(char *line)
     } else if (!strcmp(cmd, "drift")) {
         sync_armed = 0;
         if (!strcmp(arg, "pot")) { drift_from_pot = 1; }
-        else { drift_from_pot = 0; manual_drift_mv = (float)v; }
+        else { drift_from_pot = 0; manual_drift_mv = (float)v; burst_left = flt_burst; }
     } else if (!strcmp(cmd, "limit")) {
         if (v < 3000 || v > 4200) { vcp_printf(1, "{\"error\":\"limit must be 3000..4200 mV\"}\r\n"); return; }
         limit_mv = (uint16_t)v;

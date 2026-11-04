@@ -6,8 +6,11 @@
     python agents/gridtwin.py --reset         # put the original (vulnerable) controller back on the Pi
     python agents/gridtwin.py --scenario stale [--poll-ms 50]   # one hand-written scenario, no AI
     python agents/gridtwin.py --scenario healthy --poll-ms 500 --timing worst_case
+    python agents/gridtwin.py --start-from runs/<ts>   # continue from an earlier campaign's final controller
 
-Settings come from .env: MODEL_API_KEY, NUCLEO_PORT, PI_SSH (optionally JUDGE_PROVIDER=baseten).
+Models per agent come from .env: ATTACKER_/JUDGE_/FIXER_PROVIDER (meta | baseten) and _MODEL.
+
+Settings come from .env: MODEL_API_KEY, NUCLEO_PORT, PI_SSH (optionally BASETEN_API_KEY).
 Every run is saved under runs/<timestamp>/.
 
 A round:
@@ -36,7 +39,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from bench import BENCH_INFO, REPO, Bench, BenchError, PiController  # noqa: E402
+from bench import BENCH_INFO, REPO, Bench, BenchError, PiController, is_light_noise, validate_faults  # noqa: E402
 from llm import Tool, backend_from_env, run_agent  # noqa: E402
 
 load_dotenv(REPO / ".env")
@@ -87,8 +90,9 @@ def on_event(kind: str, d: dict) -> None:
 FAULT_ITEMS = {
     "type": "object",
     "properties": {
-        "name": {"type": "string", "enum": ["stale", "delay", "drop", "crc"]},
-        "value": {"type": "string", "description": "stale: 'on'; delay: ms 0-2000; drop/crc: percent 0-100"},
+        "name": {"type": "string", "enum": ["stale", "delay", "drop", "crc", "burst"]},
+        "value": {"type": "string", "description": "stale: 'on'; delay: ms 0-2000; drop/crc: percent 0-100; "
+                                                   "burst: replies lost right after the over-voltage, 0-10"},
     },
     "required": ["name", "value"],
 }
@@ -114,8 +118,8 @@ def obj(props: dict, req: list[str]) -> dict:
 
 def norm(sc: dict | None) -> dict:
     sc = sc or {}
-    return {"faults": sc.get("faults") or [], "drift_mv": int(sc.get("drift_mv", 400)),
-            "charge_a": int(sc.get("charge_a", 10)), "poll_ms": int(sc.get("poll_ms", DEFAULT_POLL_MS)),
+    return {"faults": sc.get("faults") or [], "drift_mv": int(float(sc.get("drift_mv", 400))),
+            "charge_a": int(float(sc.get("charge_a", 10))), "poll_ms": int(float(sc.get("poll_ms", DEFAULT_POLL_MS))),
             "timing": str(sc.get("timing") or "random")}
 
 
@@ -134,12 +138,13 @@ def fail_summary(r: dict) -> dict:
 
 
 class Session:
-    def __init__(self, bench: Bench, pi: PiController, run_dir: Path):
+    def __init__(self, bench: Bench, pi: PiController, run_dir: Path, start_source: str | None = None,
+                 history: list[dict] | None = None):
         self.bench, self.pi, self.run_dir = bench, pi, run_dir
         self.scenarios: list[dict] = []
         self.original = BASELINE_CONTROLLER.read_text()
-        self.source = self.original            # the controller currently deployed
-        self.history: list[dict] = []          # one entry per completed round
+        self.source = start_source or self.original   # the controller currently deployed
+        self.history: list[dict] = list(history or [])  # one entry per completed round
 
     def save(self, name: str, data) -> None:
         (self.run_dir / name).write_text(data if isinstance(data, str) else json.dumps(data, indent=2, default=str),
@@ -155,7 +160,7 @@ class Session:
                      budget=None, timing="random") -> dict:
         if budget is not None and budget["left"] <= 0:
             return {"error": "scenario budget used up: submit your result now"}
-        poll_ms = int(max(50, min(500, int(poll_ms or DEFAULT_POLL_MS))))
+        poll_ms = int(max(50, min(500, int(float(poll_ms or DEFAULT_POLL_MS)))))
         if not self.pi.running() or self.pi.poll_ms != poll_ms:
             self.pi.poll_ms = poll_ms
             self.pi.start()
@@ -235,9 +240,10 @@ exactly a scenario you ran and saw FAIL. If you could not make it fail, submit r
 FIXER = """You are the fixer in GridTwin-HIL. You receive the judge's verdict on a safety failure of a
 battery controller running on a Raspberry Pi, the history of earlier fixes, and the controller's full source.
 
-Write a minimal, careful patch that makes the controller meet both safety rules under the failing condition,
-keeps every earlier fix working, causes no false trips on a healthy link across the deployment range
-(--poll-ms 50-500), and keeps the command-line interface unchanged.
+Write a minimal, careful patch that makes the controller meet every safety rule in the bench description
+under the failing condition, keeps every earlier fix working, causes no false trips on a healthy link and no
+nuisance trips under light noise across the deployment range (--poll-ms 50-500), and keeps the command-line
+interface unchanged.
 If the controller cannot trust its view of the battery, it must fail safe (trip).
 Return the COMPLETE patched file via submit_patch. The judge will review it, then the hardware will test it."""
 
@@ -246,6 +252,7 @@ controller. Review it like a senior engineer responsible for site safety:
 - Does it remove the root cause you identified, for the minimal failing scenario?
 - Can it cause a false trip on a healthy link anywhere in the deployment range (--poll-ms 50-500)?
   Check timing assumptions against the bench description (e.g. how often values change).
+- Can a single lost or corrupted reply (light noise, rule 2b) make it trip?
 - Can it miss or delay a real over-voltage trip? Does it keep every earlier fix working?
 - Edge cases: start-up, counter wrap-around, recovery after faults clear.
 Approve only if it is sound. If you reject, list concrete problems the fixer must address.
@@ -349,7 +356,8 @@ def write_patch(s: Session, backend, verdict: dict, feedback: str, rnd: int, att
                        "patched_source": {"type": "string", "description": "The COMPLETE new pi/controller.py"}},
                       ["explanation", "patched_source"]),
                   lambda **kw: {"received": True}, final=True)]
-    task = (f"{s.history_text()}\n\nJudge's verdict for this round:\n{json.dumps(verdict, indent=2)}"
+    task = (f"Bench description:\n{json.dumps(BENCH_INFO)}\n\n{s.history_text()}"
+            f"\n\nJudge's verdict for this round:\n{json.dumps(verdict, indent=2)}"
             f"\n\nCurrent controller source:\n```python\n{s.source}\n```")
     if feedback:
         task += f"\n\nYour previous patch was rejected:\n{feedback}"
@@ -406,11 +414,13 @@ def verification_plan(s: Session, verdict: dict, extra: list[dict]) -> list[tupl
         if h["fixed"]:
             plan.append((f"regression: round {h['round']} failure", norm(h["scenario"]), "PASS"))
     plan += [("healthy over-voltage (worst-case timing)", norm({"faults": [], "drift_mv": 400, "timing": "worst_case"}), "PASS"),
-             ("healthy idle, no false trip", norm({"faults": [], "drift_mv": 0}), "PASS")]
+             ("healthy idle, no false trip", norm({"faults": [], "drift_mv": 0}), "PASS"),
+             ("light noise at 50 ms polling, no nuisance trip",
+              norm({"faults": [{"name": "drop", "value": 5}], "drift_mv": 0, "poll_ms": 50}), "PASS")]
     for x in (extra or [])[:3]:
         sc = norm(x)
-        if sc["faults"] and sc["drift_mv"] < 300:
-            continue          # faults without over-voltage: a fail-safe trip is allowed, nothing to require
+        if sc["faults"] and sc["drift_mv"] < 300 and not is_light_noise(validate_faults(sc["faults"])):
+            continue          # heavy faults without over-voltage: a fail-safe trip is allowed, nothing to require
         plan.append((f"judge's check: {x.get('why', '')[:70]}", sc, "PASS"))
     return plan
 
@@ -475,8 +485,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="GridTwin-HIL agent campaign")
     ap.add_argument("--rounds", type=int, default=3)
     ap.add_argument("--reset", action="store_true", help="deploy the original controller and exit")
-    ap.add_argument("--scenario", choices=["healthy", "idle", "stale", "delay", "drop", "crc"],
+    ap.add_argument("--scenario", choices=["healthy", "idle", "stale", "delay", "drop", "crc", "noise", "burst"],
                     help="run one hand-written scenario without AI")
+    ap.add_argument("--start-from", help="an earlier run folder (continues from its controller_final.py and "
+                                         "campaign.json) or a controller .py file")
     ap.add_argument("--poll-ms", type=int, default=DEFAULT_POLL_MS, help="with --scenario")
     ap.add_argument("--timing", choices=["random", "worst_case"], default="random", help="with --scenario")
     ap.add_argument("--attack-budget", type=int, default=6)
@@ -490,15 +502,28 @@ def main() -> int:
     run_dir = REPO / "runs" / time.strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    start_source, history = None, []
+    if args.start_from and not args.reset:
+        src = Path(args.start_from)
+        if src.is_dir():
+            start_source = (src / "controller_final.py").read_text(encoding="utf-8")
+            if (src / "campaign.json").exists():
+                history = json.loads((src / "campaign.json").read_text(encoding="utf-8"))
+        else:
+            start_source = src.read_text(encoding="utf-8")
+
     pi = PiController(host, poll_ms=DEFAULT_POLL_MS)
     pi.check()
     bench = Bench(port)
     bench.fresh_telemetry()
-    s = Session(bench, pi, run_dir)
+    s = Session(bench, pi, run_dir, start_source, history)
     say("bench", f"Nucleo on {port}, Pi at {host}, run saved to {run_dir.relative_to(REPO)}")
+    if start_source:
+        say("bench", f"starting from {args.start_from} ({len(history)} earlier round(s))")
+        s.save("controller_start.py", start_source)
 
     try:
-        pi.deploy(s.original)                      # always start from the original controller
+        pi.deploy(s.source)                        # the original controller, or --start-from
         pi.start()
         if args.reset:
             say("bench", "original controller deployed")
@@ -506,15 +531,19 @@ def main() -> int:
         if args.scenario:
             faults = {"healthy": [], "idle": [], "stale": [{"name": "stale", "value": "on"}],
                       "delay": [{"name": "delay", "value": 300}], "drop": [{"name": "drop", "value": 60}],
-                      "crc": [{"name": "crc", "value": 60}]}[args.scenario]
-            drift = 0 if args.scenario == "idle" else 400
+                      "crc": [{"name": "crc", "value": 60}], "noise": [{"name": "drop", "value": 5}],
+                      "burst": [{"name": "burst", "value": 2}]}[args.scenario]
+            drift = 0 if args.scenario in ("idle", "noise") else 400
             print(json.dumps(s.run_scenario(faults, drift, 10, args.poll_ms, f"manual: {args.scenario}",
                                             timing=args.timing), indent=2))
             return 0
 
-        attacker_b, judge_b = backend_from_env(), backend_from_env("JUDGE")
+        attacker_b, judge_b, fixer_b = backend_from_env("ATTACKER"), backend_from_env("JUDGE"), backend_from_env("FIXER")
+        s.save("models.json", {"attacker": attacker_b.label, "judge": judge_b.label, "fixer": fixer_b.label})
+        say("bench", f"models: attacker {attacker_b.label} | judge {judge_b.label} | fixer {fixer_b.label}")
         t_start = time.monotonic()
-        for rnd in range(1, args.rounds + 1):
+        first = max((h["round"] for h in s.history), default=0) + 1
+        for rnd in range(first, first + args.rounds):
             print()
             say("round", f"{C['bold']}ROUND {rnd}{C['end']}" + (f"  ({len(s.history)} fix(es) deployed)" if s.history else ""))
             finding = attack(s, attacker_b, args.attack_budget, rnd)
@@ -527,7 +556,7 @@ def main() -> int:
                 s.history.append({"round": rnd, "root_cause": "(not reproduced) " + finding.get("summary", ""),
                                   "scenario": norm(finding.get("scenario")), "fix": "none", "fixed": False})
                 continue
-            fixed = fix_round(s, attacker_b, judge_b, verdict, rnd, args.fix_attempts)
+            fixed = fix_round(s, fixer_b, judge_b, verdict, rnd, args.fix_attempts)
             s.history.append({"round": rnd, "rule": verdict.get("rule_broken"), "root_cause": verdict["root_cause"],
                               "scenario": norm(verdict.get("minimal_scenario")),
                               "fix": fixed["patch"]["explanation"] if fixed else "none",
