@@ -404,9 +404,18 @@ class PiController:
 
     PATTERN = "[p]i/controller"                 # matches controller.py and controller_live.py, not pkill itself
 
-    def _ssh(self, remote_cmd: str, **kw) -> subprocess.CompletedProcess:
-        return subprocess.run(["ssh", "-o", "BatchMode=yes", self.host, remote_cmd],
-                              capture_output=True, text=True, timeout=30, **kw)
+    def _ssh(self, remote_cmd: str, attempts: int = 3, **kw) -> subprocess.CompletedProcess:
+        """One SSH command. A slow or dropped connection is retried, so a network hiccup
+        doesn't end an hour-long campaign; after `attempts` it becomes a BenchError."""
+        for k in range(attempts):
+            try:
+                return subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+                                       "-o", "ServerAliveInterval=5", self.host, remote_cmd],
+                                      capture_output=True, text=True, timeout=30, **kw)
+            except subprocess.TimeoutExpired:
+                if k == attempts - 1:
+                    raise BenchError(f"SSH to {self.host} timed out {attempts} times: {remote_cmd[:60]}")
+                time.sleep(2)
 
     def _dir(self) -> str:
         # "~/x" must stay unquoted for the shell to expand it; quote everything else
@@ -422,9 +431,7 @@ class PiController:
         """Copy controller source to the Pi as the live controller, atomically
         (written to a temp file, then renamed), so a half-written file never runs."""
         target = f"{self._dir()}/{shlex.quote(self.script)}"
-        r = subprocess.run(["ssh", "-o", "BatchMode=yes", self.host,
-                            f"cat > {target}.tmp && mv -f {target}.tmp {target}"],
-                           input=source, capture_output=True, text=True, timeout=30)
+        r = self._ssh(f"cat > {target}.tmp && mv -f {target}.tmp {target}", input=source)
         if r.returncode != 0:
             raise BenchError(f"deploy failed: {r.stderr.strip()}")
 
