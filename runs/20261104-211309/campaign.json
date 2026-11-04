@@ -1,0 +1,22 @@
+[
+  {
+    "round": 1,
+    "rule": "1_trip_in_time",
+    "root_cause": "Controller trusts Modbus regs[0:4] without freshness check on reg10 tick. With fault `stale=on` BMS answers succeed with frozen cells/tick/current, so read_registers never raises ModbusError, error counter `errors` stays 0, `errors>=5` fail-safe never fires, and `vmax=max(regs[0:4])` stays below limit forever \u2192 no trip within 500ms (in fact never trips within 3s). Separate but related: worst_case timing is `poll_ms + UART + processing`; at max allowed poll_ms=500 latency=503.5ms exceeds 500ms deadline even without faults, so deployment range 50-500 cannot be met with simple poll-sleep.",
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 500,
+      "charge_a": 10,
+      "poll_ms": 200,
+      "timing": "worst_case"
+    },
+    "fix": "Fix stale blindness and 500ms deadline: validate tick freshness on every read (trip fail-safe after 3 frozen ticks or 350ms without fresh tick, latch until fresh data below rearm), cap effective poll to 100ms so worst-case latency <500ms across 50-500ms range, reduce serial timeout to 100ms and trip after 4 consecutive Modbus errors or 450ms without fresh data (tolerates single drops, trips bursts/delays in time), fix error-path sleep to use effective interval, gate release on fresh data only to prevent premature release on stale data.",
+    "fixed": true,
+    "fix_attempts": 1
+  }
+]

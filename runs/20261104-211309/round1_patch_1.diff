@@ -1,0 +1,110 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -116,27 +116,82 @@
+ 
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+-                        timeout=0.15)
++                        timeout=0.10)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+           f"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV", flush=True)
+ 
++    # Effective poll capped so worst-case latency (interval + UART ~40ms)
++    # stays <500ms across deployment range 50-500ms.
++    eff_poll = min(args.poll_ms / 1000.0, 0.10)
++    if eff_poll <= 0:
++        eff_poll = 0.05
++
++    STALE_COUNT_TRIP = 3
++    STALE_TIMEOUT = 0.35
++    ERROR_TRIP = 4
++    FRESH_TIMEOUT = 0.45
++
+     errors = 0
++    last_tick = None
++    last_fresh = time.monotonic()
++    stale_count = 0
+     last_print = 0.0
+     try:
+         while True:
+             t0 = time.monotonic()
+             try:
+                 regs = read_registers(ser, SLAVE_ADDR, 0, NUM_REGS)
+-                errors = 0
+             except (ModbusError, serial.SerialException, OSError) as e:
+                 errors += 1
+                 print(f"modbus error #{errors}: {e}", flush=True)
+-                # Fail safe: if we lose the battery for 5 polls in a row, trip.
+-                if errors >= 5 and not trip.active:
++                now = time.monotonic()
++                # Fail safe on sustained loss. Time backup covers mixed faults.
++                if (errors >= ERROR_TRIP or (now - last_fresh) > FRESH_TIMEOUT) and not trip.active:
+                     trip.set(True)
+                     print("TRIP: lost communication with the battery", flush=True)
+-                time.sleep(args.poll_ms / 1000)
++                elapsed = time.monotonic() - t0
++                time.sleep(max(0.0, eff_poll - elapsed))
+                 continue
++
++            tick = regs[10]
++            now = time.monotonic()
++            fresh = False
++            if last_tick is None:
++                last_tick = tick
++                last_fresh = now
++                stale_count = 0
++                errors = 0
++                fresh = True
++            elif tick != last_tick:
++                # Any change means the BMS is live (handles wrap).
++                last_tick = tick
++                last_fresh = now
++                stale_count = 0
++                errors = 0
++                fresh = True
++            else:
++                # Tick frozen: possible stale fault, or poll faster than
++                # 100ms tick update (tolerate 1-2 repeats).
++                stale_count += 1
++                if stale_count >= STALE_COUNT_TRIP or (now - last_fresh) > STALE_TIMEOUT:
++                    if not trip.active:
++                        trip.set(True)
++                        print(f"TRIP: stale data (tick {tick} frozen {stale_count}x, "
++                              f"{now - last_fresh:.2f}s without fresh data)", flush=True)
++                    # Stay tripped: do not release on frozen data.
++                    now2 = time.monotonic()
++                    if now2 - last_print >= 1.0:
++                        last_print = now2
++                        print(f"cells={regs[0:4]} mV  I={to_signed(regs[5]) / 10:.1f} A  "
++                              f"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  "
++                              f"tick={regs[10]}  trip={'ON' if trip.active else 'off'} (stale)", flush=True)
++                    elapsed = time.monotonic() - t0
++                    time.sleep(max(0.0, eff_poll - elapsed))
++                    continue
++                else:
++                    fresh = False
++                    # Fall through to over-voltage check with frozen-tolerant
++                    # data: an OV may appear even before tick advances.
+ 
+             cells = regs[0:4]
+             vmax = max(cells)
+@@ -144,7 +199,9 @@
+                 trip.set(True)
+                 print(f"TRIP: cell {cells.index(vmax) + 1} at {vmax} mV "
+                       f"(limit {args.limit_mv})", flush=True)
+-            elif trip.active and vmax < args.rearm_mv:
++            elif trip.active and fresh and vmax < args.rearm_mv:
++                # Only release on fresh trustworthy data below rearm.
++                # Frozen/low data must not release (rule 4).
+                 trip.set(False)
+                 print(f"released: max cell {vmax} mV", flush=True)
+ 
+@@ -156,7 +213,7 @@
+                       f"tick={regs[10]}  trip={'ON' if trip.active else 'off'}", flush=True)
+ 
+             elapsed = time.monotonic() - t0
+-            time.sleep(max(0.0, args.poll_ms / 1000 - elapsed))
++            time.sleep(max(0.0, eff_poll - elapsed))
+     except KeyboardInterrupt:
+         pass
+     finally:

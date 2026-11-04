@@ -1,0 +1,1050 @@
+[
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 500,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3795,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 0.0,
+    "until_reported_ms": 0.0,
+    "reaction_ms": 0.0,
+    "note": "controller was already tripped before the over-voltage (safe state)",
+    "modbus_link": {
+      "polls_answered": 33,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: stale data (tick 39937 frozen 3x, 0.30s without fresh data)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=39937  trip=ON (stale)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=39937  trip=ON (stale)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=39937  trip=ON (stale)"
+    ],
+    "elapsed_s": 2.8,
+    "hypothesis": "verification: this round's failing scenario",
+    "check": "this round's failing scenario",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3695,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 103.5,
+    "until_reported_ms": 69.8,
+    "reaction_ms": 33.7,
+    "modbus_link": {
+      "polls_answered": 34,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=39984  trip=off",
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=39994  trip=ON",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40004  trip=ON"
+    ],
+    "elapsed_s": 2.9,
+    "hypothesis": "verification: healthy over-voltage (worst-case timing)",
+    "check": "healthy over-voltage (worst-case timing)",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3296,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "healthy idle, no false trip",
+    "modbus_link": {
+      "polls_answered": 67,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40024  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=40034  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40044  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40054  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40064  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=40074  trip=off"
+    ],
+    "elapsed_s": 5.7,
+    "hypothesis": "verification: healthy idle, no false trip",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "light noise at 50 ms polling, no nuisance trip",
+    "modbus_link": {
+      "polls_answered": 222,
+      "replies_dropped": 10,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40113  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=40123  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40134  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40144  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40154  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=40164  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=40174  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=40184  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=40194  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=40204  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=40214  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: light noise at 50 ms polling, no nuisance trip",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "light noise at 50 ms polling, no nuisance trip",
+    "modbus_link": {
+      "polls_answered": 222,
+      "replies_dropped": 11,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=40224  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40234  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=40244  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=40254  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40264  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40275  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=40285  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=40295  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=40305  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=40315  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=40325  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=40335  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: light noise at 50 ms polling, no nuisance trip",
+    "required": "PASS",
+    "repeat": 2
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "light noise at 50 ms polling, no nuisance trip",
+    "modbus_link": {
+      "polls_answered": 225,
+      "replies_dropped": 8,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=40345  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=40355  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=40365  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=40375  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.7%  tick=40386  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40396  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=40406  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.2%  tick=40416  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=40426  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=40436  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.7%  tick=40446  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=40456  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: light noise at 50 ms polling, no nuisance trip",
+    "required": "PASS",
+    "repeat": 3
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "light noise at 50 ms polling, no nuisance trip",
+    "modbus_link": {
+      "polls_answered": 223,
+      "replies_dropped": 10,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=40466  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=40476  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40486  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=40496  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.7%  tick=40506  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=40516  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=40526  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.2%  tick=40536  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=40546  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=40556  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.7%  tick=40566  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.9%  tick=40576  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: light noise at 50 ms polling, no nuisance trip",
+    "required": "PASS",
+    "repeat": 4
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "light noise at 50 ms polling, no nuisance trip",
+    "modbus_link": {
+      "polls_answered": 219,
+      "replies_dropped": 14,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40586  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=40596  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40606  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40616  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.7%  tick=40626  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=40636  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=40646  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.2%  tick=40656  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=40666  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=40676  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.7%  tick=40686  trip=off",
+      "modbus error #1: no reply (timeout)"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: light noise at 50 ms polling, no nuisance trip",
+    "required": "PASS",
+    "repeat": 5
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 100,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 50
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3396,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "check": "judge's check: Fast poll 50ms healthy no OV must not false-trip: tick every 100ms giv",
+    "modbus_link": {
+      "polls_answered": 183,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.9%  tick=40696  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40706  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=40716  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40726  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40736  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40746  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=40756  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=40766  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=40776  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=40786  trip=off"
+    ],
+    "elapsed_s": 8.2,
+    "hypothesis": "verification: judge's check: Fast poll 50ms healthy no OV must not false-trip: tick every 100ms giv",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 100,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 100
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3397,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "modbus_link": {
+      "polls_answered": 116,
+      "replies_dropped": 8,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40821  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=40832  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=40842  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40852  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40862  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=40872  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=40882  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=40892  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=40902  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=40912  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=40922  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 100,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 100
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3397,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "modbus_link": {
+      "polls_answered": 117,
+      "replies_dropped": 5,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=40932  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=40942  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=40952  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=40962  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=40973  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=40983  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=40993  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=41003  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=41013  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=41023  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=41033  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=41043  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "required": "PASS",
+    "repeat": 2
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 100,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 100
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3397,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "modbus_link": {
+      "polls_answered": 117,
+      "replies_dropped": 4,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=41053  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=41063  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=41073  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=41083  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.7%  tick=41093  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=41103  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=41113  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.2%  tick=41123  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=41133  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=41143  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.7%  tick=41153  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=41163  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "required": "PASS",
+    "repeat": 3
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 100,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 100
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3397,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "modbus_link": {
+      "polls_answered": 116,
+      "replies_dropped": 7,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=41173  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=41183  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=41194  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=41204  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.7%  tick=41214  trip=off",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=41224  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=41234  trip=off",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.2%  tick=41244  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=41255  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=41265  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.7%  tick=41275  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "required": "PASS",
+    "repeat": 4
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 5
+        }
+      ],
+      "drift_mv": 100,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 100
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3397,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "modbus_link": {
+      "polls_answered": 116,
+      "replies_dropped": 7,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=41295  trip=off",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=41305  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3394] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=41315  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=41325  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=41335  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3395] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=41345  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=41355  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=41365  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3396] mV  I=10.0 A  T=30.1 C  SOC=51.4%  tick=41375  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=41385  trip=off",
+      "cells=[3288, 3291, 3294, 3397] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=41395  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: judge's check: Light noise 5% drop without OV must not nuisance-trip per rule 2b, ver",
+    "required": "PASS",
+    "repeat": 5
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 500,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 500
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3795,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 0.0,
+    "until_reported_ms": 0.0,
+    "reaction_ms": 0.0,
+    "note": "controller was already tripped before the over-voltage (safe state)",
+    "modbus_link": {
+      "polls_answered": 32,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "TRIP: stale data (tick 41427 frozen 3x, 0.30s without fresh data)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=41427  trip=ON (stale)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=41427  trip=ON (stale)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.0%  tick=41427  trip=ON (stale)"
+    ],
+    "elapsed_s": 2.7,
+    "hypothesis": "verification: judge's check: Max deployment poll 500ms with stale OV is worst-case latency - proves",
+    "check": "judge's check: Max deployment poll 500ms with stale OV is worst-case latency - proves",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 60,
+      "timing": "worst_case",
+      "poll_ms": 300
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3750,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 103.5,
+    "until_reported_ms": 69.8,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 33,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3336, 3339, 3342, 3345] mV  I=60.0 A  T=30.5 C  SOC=50.7%  tick=41494  trip=off",
+      "TRIP: cell 4 at 3746 mV (limit 3650)",
+      "cells=[3338, 3341, 3344, 3747] mV  I=60.0 A  T=30.9 C  SOC=51.7%  tick=41504  trip=ON",
+      "cells=[3340, 3343, 3346, 3749] mV  I=60.0 A  T=31.2 C  SOC=52.7%  tick=41514  trip=ON"
+    ],
+    "elapsed_s": 2.8,
+    "hypothesis": "verification: held-out: over-voltage while charging at 60 A, 300 ms polling",
+    "check": "held-out: over-voltage while charging at 60 A, 300 ms polling",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 700,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 75
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3995,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 97.2,
+    "until_reported_ms": 63.6,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 45,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=32.2 C  SOC=50.1%  tick=41556  trip=off",
+      "TRIP: cell 4 at 3994 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3994] mV  I=10.0 A  T=32.1 C  SOC=50.3%  tick=41567  trip=ON",
+      "cells=[3285, 3288, 3291, 3994] mV  I=10.0 A  T=31.9 C  SOC=50.4%  tick=41577  trip=ON"
+    ],
+    "elapsed_s": 2.9,
+    "hypothesis": "verification: held-out: large over-voltage (700 mV), 75 ms polling",
+    "check": "held-out: large over-voltage (700 mV), 75 ms polling",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 3
+        },
+        {
+          "name": "crc",
+          "value": 3
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 140
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "modbus_link": {
+      "polls_answered": 117,
+      "replies_dropped": 5,
+      "replies_corrupted": 5
+    },
+    "controller_log": [
+      "modbus error #1: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 3c 01 f4 00 e6 00 00 a2 8d 03 e8 be 91",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=31.6 C  SOC=50.1%  tick=41617  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 3b 01 f5 00 e6 00 00 a2 94 03 e8 78 b2",
+      "modbus error #2: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 3b 01 f5 00 e6 00 00 a2 95 03 e8 29 72",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=31.5 C  SOC=50.2%  tick=41627  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 3a 01 f8 00 e6 00 00 a2 a2 03 e8 c4 d0",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=31.4 C  SOC=50.4%  tick=41637  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=31.3 C  SOC=50.6%  tick=41647  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=31.3 C  SOC=50.7%  tick=41657  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=31.2 C  SOC=50.9%  tick=41667  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=31.1 C  SOC=51.1%  tick=41677  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d7 0c da 0c dd 0c e0 05 24 00 64 01 37 02 00 00 e6 00 00 a2 d2 03 e8 68 11",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=31.1 C  SOC=51.2%  tick=41687  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=31.0 C  SOC=51.4%  tick=41697  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=31.0 C  SOC=51.6%  tick=41707  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.9 C  SOC=51.7%  tick=41717  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: no reply (timeout)"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "required": "PASS",
+    "repeat": 1
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 3
+        },
+        {
+          "name": "crc",
+          "value": 3
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 140
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "modbus_link": {
+      "polls_answered": 117,
+      "replies_dropped": 3,
+      "replies_corrupted": 2
+    },
+    "controller_log": [
+      "modbus error #1: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 34 01 f4 00 e6 00 00 a3 06 03 e8 e5 27",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.8 C  SOC=50.1%  tick=41737  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.8 C  SOC=50.3%  tick=41748  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.8 C  SOC=50.4%  tick=41758  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.7 C  SOC=50.6%  tick=41768  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.7 C  SOC=50.8%  tick=41778  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.7 C  SOC=50.9%  tick=41788  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.6 C  SOC=51.1%  tick=41798  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.6 C  SOC=51.3%  tick=41808  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.6 C  SOC=51.4%  tick=41818  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.5 C  SOC=51.6%  tick=41828  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.5 C  SOC=51.8%  tick=41838  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d8 0c db 0c de 0c e1 05 25 00 64 01 31 02 07 00 e6 00 00 a3 73 03 e8 c5 02"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "required": "PASS",
+    "repeat": 2
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 3
+        },
+        {
+          "name": "crc",
+          "value": 3
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 140
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "modbus_link": {
+      "polls_answered": 116,
+      "replies_dropped": 6,
+      "replies_corrupted": 7
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.5 C  SOC=50.0%  tick=41848  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.5 C  SOC=50.1%  tick=41858  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.5 C  SOC=50.3%  tick=41868  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.4 C  SOC=50.5%  tick=41878  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: bad CRC in 01 03 18 0c d6 0c d9 0c dc 0c df 05 24 00 64 01 30 01 f9 00 e6 00 00 a3 9a 03 e8 8f 7b",
+      "modbus error #1: bad CRC in 01 03 18 0c d6 0c d9 0c dc 0c df 05 24 00 64 01 30 01 fa 00 e6 00 00 a3 9f 03 e8 8b 8a",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.4 C  SOC=50.6%  tick=41888  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d6 0c d9 0c dc 0c df 05 24 00 64 01 30 01 fb 00 e6 00 00 a3 a5 03 e8 a6 17",
+      "modbus error #1: bad CRC in 01 03 18 0c d6 0c d9 0c dc 0c df 05 24 00 64 01 30 01 fc 00 e6 00 00 a3 a8 03 e8 11 e4",
+      "modbus error #2: bad CRC in 01 03 18 0c d6 0c d9 0c dc 0c df 05 24 00 64 01 30 01 fc 00 e6 00 00 a3 a9 03 e8 40 24",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.4 C  SOC=50.8%  tick=41898  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d6 0c d9 0c dc 0c df 05 24 00 64 01 30 01 fc 00 e6 00 00 a3 ac 03 e8 50 25",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.4 C  SOC=51.0%  tick=41908  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.4 C  SOC=51.1%  tick=41918  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.4 C  SOC=51.3%  tick=41928  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.4 C  SOC=51.5%  tick=41938  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d7 0c da 0c dd 0c e0 05 24 00 64 01 30 02 03 00 e6 00 00 a3 d5 03 e8 d6 a8",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.3 C  SOC=51.6%  tick=41948  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.3 C  SOC=51.8%  tick=41958  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "required": "PASS",
+    "repeat": 3
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 3
+        },
+        {
+          "name": "crc",
+          "value": 3
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 140
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "modbus_link": {
+      "polls_answered": 116,
+      "replies_dropped": 2,
+      "replies_corrupted": 2
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.3 C  SOC=50.0%  tick=41968  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.3 C  SOC=50.2%  tick=41978  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 2f 01 f7 00 e6 00 00 a3 ff 03 e8 50 02",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.3 C  SOC=50.3%  tick=41988  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.3 C  SOC=50.5%  tick=41999  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.3 C  SOC=50.7%  tick=42009  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.3 C  SOC=50.9%  tick=42019  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.3 C  SOC=51.0%  tick=42029  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d7 0c da 0c dd 0c e0 05 24 00 64 01 2f 01 ff 00 e6 00 00 a4 30 03 e8 03 f4",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.3 C  SOC=51.2%  tick=42039  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.3 C  SOC=51.4%  tick=42049  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.2 C  SOC=51.5%  tick=42059  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.2 C  SOC=51.7%  tick=42069  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.2 C  SOC=51.9%  tick=42079  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "required": "PASS",
+    "repeat": 4
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "drop",
+          "value": 3
+        },
+        {
+          "name": "crc",
+          "value": 3
+        }
+      ],
+      "drift_mv": 0,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 140
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3297,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "check": "held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "modbus_link": {
+      "polls_answered": 117,
+      "replies_dropped": 4,
+      "replies_corrupted": 2
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.0%  tick=42089  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d5 0c d8 0c db 0c de 05 23 00 64 01 2e 01 f6 00 e6 00 00 a4 70 03 e8 69 f1",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.2%  tick=42099  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.4%  tick=42110  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.2 C  SOC=50.6%  tick=42120  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.2 C  SOC=50.7%  tick=42130  trip=off",
+      "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.2 C  SOC=50.9%  tick=42140  trip=off",
+      "modbus error #1: bad CRC in 01 03 18 0c d7 0c da 0c dd 0c e0 05 24 00 64 01 2e 01 fe 00 e6 00 00 a4 a5 03 e8 1a b4",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.2 C  SOC=51.1%  tick=42150  trip=off",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.2 C  SOC=51.2%  tick=42160  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.2 C  SOC=51.4%  tick=42170  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.2 C  SOC=51.6%  tick=42180  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.2 C  SOC=51.7%  tick=42190  trip=off",
+      "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.2 C  SOC=51.9%  tick=42200  trip=off"
+    ],
+    "elapsed_s": 10.7,
+    "hypothesis": "verification: held-out: mixed light noise (3 % lost + 3 % corrupted), 140 ms polling, idle",
+    "required": "PASS",
+    "repeat": 5
+  },
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "burst",
+          "value": 3
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 250
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3695,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 404.1,
+    "until_reported_ms": 370.5,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 36,
+      "replies_dropped": 3,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.2 C  SOC=50.1%  tick=42231  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: no reply (timeout)",
+      "modbus error #3: no reply (timeout)",
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.2 C  SOC=50.2%  tick=42241  trip=ON",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.2 C  SOC=50.4%  tick=42251  trip=ON"
+    ],
+    "elapsed_s": 3.1,
+    "hypothesis": "verification: held-out: 3-reply burst at 250 ms polling",
+    "check": "held-out: 3-reply burst at 250 ms polling",
+    "required": "PASS",
+    "repeat": 1
+  }
+]

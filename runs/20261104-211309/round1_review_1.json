@@ -1,0 +1,40 @@
+{
+  "final": {
+    "approve": true,
+    "problems": [],
+    "extra_checks": [
+      {
+        "faults": [],
+        "drift_mv": 100,
+        "poll_ms": 50,
+        "timing": "worst_case",
+        "why": "Fast poll 50ms healthy no OV must not false-trip: tick every 100ms gives 1 frozen repeat per cycle, stale_count 3/350ms must tolerate"
+      },
+      {
+        "faults": [
+          {
+            "name": "drop",
+            "value": "5"
+          }
+        ],
+        "drift_mv": 100,
+        "poll_ms": 100,
+        "timing": "random",
+        "why": "Light noise 5% drop without OV must not nuisance-trip per rule 2b, verifies 4-error/450ms threshold tolerates single losses"
+      },
+      {
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "drift_mv": 500,
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "Max deployment poll 500ms with stale OV is worst-case latency - proves eff_poll 100ms cap fixes 503.5ms deadline violation and stale trip within 500ms"
+      }
+    ]
+  },
+  "tokens": 26933
+}

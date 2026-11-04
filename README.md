@@ -571,6 +571,22 @@ python -m pytest tests                         # 46 tests, no hardware needed
 
 See [the campaign](#the-campaign-four-bugs-found-proven-fixed-and-re-attacked) above: four distinct safety
 failures, each measured on hardware by two independent agents, fixed and verified with 31 of 31 checks passing.
+A fresh run on the final code reproduced the same root causes and fixed them in one patch (below).
+
+### A fresh run on the final code
+
+To check that nothing above depends on the old bench, we ran the whole thing again from the **original**
+controller on the final firmware and agents, with the stricter verification (hidden checks, random checks ×5)
+and the judge on Muse Spark Open ([`runs/20261104-211309`](runs/20261104-211309/); 36 hardware runs, 35 minutes).
+
+| Round | What happened | Hardware |
+|---|---|---|
+| 1 | The attacker found **both** early bugs in its first five runs: frozen data (no trip, cell at 3795 mV) and the 500 ms deadline miss on a healthy link. The judge reproduced both | ❌ no trip · ❌ 503.6 ms |
+| 1 | One patch for both: tick freshness check, 100 ms safety loop, time-based fail-safe, release only on fresh data. All 12 checks passed on the first attempt, hidden ones included | ✅ worst case **103.5 ms** |
+| 2 | Six attacks (stale data, 200 and 350 ms delays, a 10-reply blackout, fast polling): nothing broke | ✅ blackout trips in 458.3 ms |
+
+The agents took a shorter path than in the first campaign, but to the same root causes, and the fix held under
+checks it had never seen.
 
 ### One-hour soak of round 3's controller
 
@@ -624,8 +640,8 @@ open-weights judge the fourth. What is left:
 - **The controller now polls every 120 ms, whatever `--poll-ms` says above that.** That is how round 4 kept the
   deadline with a debounced fail-safe. It is safe, but a site that set 500 ms to keep bus traffic low gets about
   4× more traffic. A production controller would make that trade-off explicit.
-- **Deadline margin under a total blackout is about 90 ms** (a 10-reply burst tripped in 408.2 ms against
-  500 ms). The fail-safe timer is a hard-coded 0.40 s, tuned to this bench's 100 ms freshness counter.
+- **Deadline margin under a total blackout is small:** about 90 ms for round 4's controller (a 10-reply burst
+  tripped in 408.2 ms) and 42 ms for the fresh run's (458.3 ms), both against 500 ms. The fail-safe timer is a hard-coded 0.40 s, tuned to this bench's 100 ms freshness counter.
 - **Soaks are manual and short.** The final controller was soaked for about 10 minutes under light noise, not
   hours, and soaks are not yet part of the automatic verification.
 - **Random faults still reproduce randomly.** The evidence rule needs one measured FAIL, not a failure rate.
