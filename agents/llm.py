@@ -39,6 +39,11 @@ class Backend:
         return f"{self.model} via {'Meta Model API' if self.kind == 'meta' else 'Baseten (open weights)'}"
 
 
+# A campaign runs for an hour: a stuck request must not hang it, and a passing 5xx/429 must not end it.
+# The SDK retries with exponential backoff; each request gets 3 minutes (long reasoning turns).
+CLIENT_OPTS = {"timeout": 180.0, "max_retries": 5}
+
+
 def backend_from_env(role: str = "") -> Backend:
     """Pick the model for one agent role from .env.
 
@@ -55,10 +60,10 @@ def backend_from_env(role: str = "") -> Backend:
     if provider == "baseten":
         return Backend("baseten", model or env.get("MUSE_SPARK_OPEN_MODEL", "meta-models/muse-spark-open"),
                        OpenAI(base_url=env.get("BASETEN_API_BASE", "https://inference.baseten.co/v1"),
-                              api_key=env["BASETEN_API_KEY"]))
+                              api_key=env["BASETEN_API_KEY"], **CLIENT_OPTS))
     return Backend("meta", model or env.get("MUSE_SPARK_MODEL", "muse-spark-1.3"),
                    OpenAI(base_url=env.get("MODEL_API_BASE", "https://api.meta.ai/v1"),
-                          api_key=env["MODEL_API_KEY"]))
+                          api_key=env["MODEL_API_KEY"], **CLIENT_OPTS))
 
 
 @dataclass

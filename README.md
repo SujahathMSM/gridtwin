@@ -394,12 +394,19 @@ Both boards use 3.3 V logic and connect directly. Each board is powered by its o
 gridtwin/
 ├── firmware/      STM32CubeIDE project for the Nucleo-G491RE
 │   └── Core/Src/gridtwin_app.c    battery model, Modbus slave, trip timer
-├── pi/            controller.py, the controller under test
+├── pi/            controller.py, the ORIGINAL controller under test (kept unpatched on purpose)
 ├── laptop/        monitor.py, live view and commands over USB
-├── agents/        gridtwin.py (orchestrator), bench.py (hardware tools), llm.py (tool-calling loop)
-├── runs/          every agent run: scenarios, tool calls, verdict, patch, verification
+├── agents/        gridtwin.py (orchestrator), bench.py (hardware tools), llm.py (tool-calling loop),
+│                  check_models.py (which Meta models your keys reach)
+├── runs/          every agent run: scenarios, tool calls, verdicts, patches, verification, patched controllers
 └── docs/          setup guides
 ```
+
+**Why `pi/controller.py` never changes:** it is the patient, not the cure. Every campaign starts from this
+same buggy controller, so anyone who clones the repo can watch the agents find the bugs from scratch, and
+`--reset` puts it back on the Pi. The agents' fixes are deployed to the Pi as `pi/controller_live.py` and saved
+in the run folders: each `round{n}_controller.py` and `round{n}_patch_1.diff`, and the final hardened controller
+in [`runs/20261104-074351/controller_final.py`](runs/20261104-074351/controller_final.py).
 
 ## Quick start
 

@@ -29,6 +29,18 @@ FAULTS = {
     "crc":   {"min": 0, "max": 100, "unit": "%", "doc": "this percentage of Modbus replies carry a corrupted CRC"},
     "burst": {"min": 0, "max": 10, "unit": "replies", "doc": "exactly this many read replies are lost right after cell 4 is pushed "
               "up (an interference burst). Deterministic: combined with timing=worst_case it reproduces every time"},
+    "cut":   {"values": ["on"], "doc": "the trip wire is cut: the battery side can no longer see the controller's trip line"},
+    "ctl_kill": {"values": ["on"], "doc": "the controller process is killed (SIGKILL) 0.5 s before cell 4 is pushed up"},
+    "ctl_freeze": {"min": 100, "max": 3000, "unit": "ms", "doc": "the controller process is frozen (SIGSTOP) for this long, "
+                   "starting 0.3 s before cell 4 is pushed up, then resumed"},
+}
+FIRMWARE_FAULTS = ("stale", "delay", "drop", "crc", "burst", "cut")
+CONTROLLER_FAULTS = ("ctl_kill", "ctl_freeze")
+INTERLOCKS = {
+    "legacy": "GPIO23 (trip line) HIGH = trip, LOW = battery allowed. The battery side only reacts to a high line.",
+    "failsafe": "energize to run. GPIO23 HIGH = permissive (battery allowed); LOW, a cut wire or an unpowered Pi = trip. "
+                "GPIO24 is a heartbeat: it must change level at least every 250 ms or the interlock opens by itself, "
+                "so a hung or killed controller trips. A deliberate trip = drive GPIO23 low.",
 }
 
 # Occasional noise a real RS-485 line always has. Rule 2b: no trip for this alone.
@@ -54,17 +66,25 @@ BENCH_INFO = {
                             "down.",
         "2b_no_nuisance_trips": f"Real RS-485 lines lose or corrupt the odd reply. With light noise only (drop and/or crc, each "
                                 f"<= {LIGHT_NOISE_MAX_PCT} %) and no over-voltage, the controller must not trip either. "
-                                "With heavier faults (stale data, delays, bursts, > 5 % loss) and no over-voltage, a fail-safe "
-                                "trip is acceptable.",
+                                "With heavier faults (stale data, delays, bursts, > 5 % loss, controller faults) and no "
+                                "over-voltage, a fail-safe trip is acceptable.",
+        "3_fail_safe": "If the controller is killed or frozen, or the trip wire is cut, an over-voltage must still be "
+                       "tripped within 500 ms. (Under the legacy interlock this cannot hold: the battery side only reacts "
+                       "to a live controller driving the line high.)",
+        "4_no_premature_release": "Once tripped, the interlock must stay open while any cell is at or above the limit. "
+                                  "Releasing early is a FAIL even if the trip itself was on time.",
     },
+    "interlock": INTERLOCKS,
     "controller_deployment": "The controller runs with --poll-ms between 50 and 500 ms depending on the site; "
                              "the default is 200 ms. Both safety rules must hold across that whole range.",
     "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V, controller restarted if poll_ms changed) -> faults applied "
                            "-> after 1 s, cell 4 is pushed up by drift_mv -> the STM32 reports PASS (trip within deadline), "
                            "FAIL (late trip) or FAIL no_trip (no trip within 3 s) -> faults cleared, back to baseline. "
                            "drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rules 2 and 2b "
-                           "(PASS = no trip, FAIL false_trip / nuisance_trip). Runs without an over-voltage watch the "
-                           "controller for 5 s (10 s with light noise).",
+                           "(PASS = no trip, FAIL false_trip / nuisance_trip); 251-399 is refused as ambiguous. Runs "
+                           "without an over-voltage watch the controller for 5 s (10 s with light noise). After a trip "
+                           "the bench keeps watching 1.5 s for a premature release. BENCH_FAULT means the bench itself "
+                           "misbehaved: it is not evidence about the controller.",
     "timing": {
         "random": "default. The drift is applied whenever the bench sends the command, so it lands at a random point "
                   "in the controller's poll cycle. Failures that depend on timing show up only some of the time.",
@@ -77,6 +97,10 @@ BENCH_INFO = {
 
 
 TIMINGS = ("random", "worst_case")
+PREMATURE_WATCH_S = 1.5      # after a trip, watch this long for a premature release
+NO_OV_WINDOW_S = 5.0         # runs without an over-voltage: watch for a false trip this long
+NOISE_WINDOW_S = 10.0        # ... and this long under light noise (so some replies actually get lost)
+SETTLE_S = 0.5               # pauses between applying faults and pushing the cell up
 
 
 class BenchError(RuntimeError):
@@ -167,7 +191,8 @@ class Bench:
         return None
 
     def _collect(self, window: float) -> list[dict]:
-        """All STM32 events for up to `window` s; stops early on a trip verdict."""
+        """All STM32 events for up to `window` s. After a trip, keep watching
+        PREMATURE_WATCH_S for a premature release, then stop."""
         out, end = [], time.monotonic() + window
         while time.monotonic() < end:
             try:
@@ -175,9 +200,18 @@ class Bench:
             except queue.Empty:
                 break
             out.append(ev)
-            if ev.get("event") in ("trip", "no_trip"):
+            if ev.get("event") == "no_trip" or ev.get("event") == "premature_release":
                 break
+            if ev.get("event") == "trip":
+                end = min(end, time.monotonic() + PREMATURE_WATCH_S) if ev.get("result") == "PASS" else time.monotonic()
         return out
+
+    def set_interlock(self, mode: str) -> None:
+        if mode not in INTERLOCKS:
+            raise BenchError(f"interlock must be one of {list(INTERLOCKS)}")
+        reply = self.command(f"interlock {mode}")
+        if reply.get("ok") != f"interlock {mode}":
+            raise BenchError("the Nucleo firmware does not support interlock modes: flash the latest firmware")
 
     def wait_idle(self, timeout: float = 8.0) -> bool:
         """Wait until all cells are below the limit and the trip line is low."""
@@ -200,6 +234,11 @@ class Bench:
             raise BenchError("drift_mv and charge_a must be numbers")
         drift_mv = max(0, min(800, drift_mv))
         charge_a = max(-100, min(100, charge_a))
+        if 250 < drift_mv < 400:
+            raise BenchError("drift_mv must be <= 250 (no over-voltage) or >= 400 (over-voltage)")
+        ctl_faults = [f for f in faults if f["name"] in CONTROLLER_FAULTS]
+        if ctl_faults and controller is None:
+            raise BenchError("controller faults need the Pi controller")
         timing = str(timing or "random").lower()
         if timing not in TIMINGS:
             raise BenchError(f"timing must be one of {list(TIMINGS)}")
@@ -214,21 +253,37 @@ class Bench:
         if not self.wait_idle():
             t = self.fresh_telemetry()
             if max(t["cells"]) >= t["limit_mv"] - 60:
-                return {"scenario": scenario, "result": "ABORTED",
+                return {"scenario": scenario, "result": "BENCH_FAULT",
                         "reason": "cells did not return below the limit before the run"}
-            # cells are fine and there are no faults, yet the trip line stays high
+            # Cells are fine and there are no faults, yet the interlock stays open. Restart the
+            # controller once: if it clears, the bench was in a bad state (not evidence).
+            if controller is not None:
+                controller.start()
+                if self.wait_idle():
+                    return {"scenario": scenario, "result": "BENCH_FAULT",
+                            "reason": "the interlock was open at idle until the controller was restarted; "
+                                      "run the scenario again"}
             return {"scenario": scenario, "result": "FAIL", "failure": "false_trip",
-                    "detail": "with a healthy battery and no faults, the controller holds its trip line high at idle",
+                    "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle "
+                              "(even after a restart)",
                     "controller_log": (controller.lines_since(log_mark) if controller else [])[-25:]}
         start = self.fresh_telemetry()
         self.drain_events()
 
         for f in faults:
-            self.command(f"fault {f['name']} {f['value']}")
-        time.sleep(1.0)
+            if f["name"] in FIRMWARE_FAULTS:
+                self.command(f"fault {f['name']} {f['value']}")
+        time.sleep(SETTLE_S)
+        for f in ctl_faults:
+            if f["name"] == "ctl_kill":
+                controller.kill()
+            else:
+                controller.freeze(int(f["value"]), delay_s=0.2)
+        time.sleep(SETTLE_S)
 
         t0 = time.monotonic()
-        window = observe_s if drift_mv >= 300 else max(observe_s, 10.0 if is_light_noise(faults) else 5.0)
+        window = observe_s if drift_mv >= 400 else max(observe_s, NOISE_WINDOW_S if is_light_noise(faults)
+                                                        else NO_OV_WINDOW_S)
         if timing == "worst_case":
             reply = self.command(f"drift sync {drift_mv}")
             if reply.get("ok") != f"drift sync {drift_mv}":     # old firmware reads "sync" as 0 mV
@@ -245,10 +300,15 @@ class Bench:
         # back to normal
         self.command("fault clear")
         self.command("drift 0")
+        if ctl_faults and controller is not None:
+            controller.resume()
+            if not controller.running():
+                controller.start()             # it was killed: bring it back for the next run
         recovered = self.wait_idle()
 
         names = [e["event"] for e in events]
         verdict = next((e for e in events if e["event"] in ("trip", "no_trip")), None)
+        premature = next((e for e in events if e["event"] == "premature_release"), None)
         overvoltage = "overvoltage" in names
         result: dict = {
             "scenario": scenario, "result": "INCONCLUSIVE", "max_cell_mv_real": max(end["cells"]),
@@ -289,6 +349,12 @@ class Bench:
                           reaction_ms=round(verdict["reaction_us"] / 1000, 1))
             if verdict.get("note"):
                 result["note"] = "controller was already tripped before the over-voltage (safe state)"
+            if verdict.get("cause") and verdict["cause"] != "trip_line":
+                result["trip_cause"] = verdict["cause"]   # heartbeat_lost / wire_cut: the interlock opened by itself
+            if premature:
+                result.update(result="FAIL", failure="premature_release",
+                              detail=f"the interlock closed again after {premature.get('held_ms')} ms while a cell was "
+                                     f"still at {premature.get('cell_mv')} mV (limit {result['limit_mv']} mV)")
         result["modbus_link"] = {
             "polls_answered": end["polls"] - start["polls"],
             "replies_dropped": end.get("dropped", 0) - start.get("dropped", 0),
@@ -331,12 +397,21 @@ class PiController:
     script: str = "pi/controller_live.py"
     poll_ms: int = 200
     log: callable = print
+    max_lines: int = 5000                       # keep memory bounded on long campaigns
     _proc: subprocess.Popen | None = None
     _lines: list = field(default_factory=list)
+    _dropped: int = 0                           # lines trimmed from the front (keeps marks valid)
+
+    PATTERN = "[p]i/controller"                 # matches controller.py and controller_live.py, not pkill itself
 
     def _ssh(self, remote_cmd: str, **kw) -> subprocess.CompletedProcess:
         return subprocess.run(["ssh", "-o", "BatchMode=yes", self.host, remote_cmd],
                               capture_output=True, text=True, timeout=30, **kw)
+
+    def _dir(self) -> str:
+        # "~/x" must stay unquoted for the shell to expand it; quote everything else
+        d = self.remote_dir
+        return "~/" + shlex.quote(d[2:]) if d.startswith("~/") else shlex.quote(d)
 
     def check(self) -> None:
         r = self._ssh("echo ok")
@@ -344,9 +419,11 @@ class PiController:
             raise BenchError(f"cannot SSH to {self.host} without a password: {r.stderr.strip()}")
 
     def deploy(self, source: str) -> None:
-        """Copy controller source to the Pi as the live controller."""
+        """Copy controller source to the Pi as the live controller, atomically
+        (written to a temp file, then renamed), so a half-written file never runs."""
+        target = f"{self._dir()}/{shlex.quote(self.script)}"
         r = subprocess.run(["ssh", "-o", "BatchMode=yes", self.host,
-                            f"cat > {self.remote_dir}/{self.script}"],
+                            f"cat > {target}.tmp && mv -f {target}.tmp {target}"],
                            input=source, capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise BenchError(f"deploy failed: {r.stderr.strip()}")
@@ -354,32 +431,56 @@ class PiController:
     def stop(self) -> None:
         if self._proc and self._proc.poll() is None:
             self._proc.terminate()
-        self._ssh("pkill -f '[p]i/controller' || true")   # never two controllers on one port
+        # a frozen controller ignores TERM until resumed; never two controllers on one port
+        self._ssh(f"pkill -CONT -f '{self.PATTERN}'; pkill -f '{self.PATTERN}' || true")
         self._proc = None
         time.sleep(0.5)
 
     def start(self) -> None:
         self.stop()
-        cmd = (f"cd {self.remote_dir} && exec .venv/bin/python -u {self.script} "
-               f"--poll-ms {self.poll_ms}")
-        self._proc = subprocess.Popen(["ssh", "-o", "BatchMode=yes", self.host, cmd],
-                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                      stdin=subprocess.DEVNULL, text=True, bufsize=1)
-        threading.Thread(target=self._pump, daemon=True).start()
+        cmd = (f"cd {self._dir()} && exec .venv/bin/python -u {shlex.quote(self.script)} "
+               f"--poll-ms {int(self.poll_ms)}")
+        proc = subprocess.Popen(["ssh", "-o", "BatchMode=yes", self.host, cmd],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL, text=True, bufsize=1)
+        self._proc = proc
+        threading.Thread(target=self._pump, args=(proc,), daemon=True).start()
         time.sleep(1.5)
-        if self._proc.poll() is not None:
+        if proc.poll() is not None:
             raise BenchError("controller exited at start:\n" + "\n".join(self._lines[-10:]))
 
-    def _pump(self) -> None:
-        proc = self._proc
+    # -- controller faults (the agents' new attack class) ------------------
+    def kill(self) -> None:
+        """SIGKILL: no cleanup code runs, like a crash or a power cut of the process."""
+        self._ssh(f"pkill -KILL -f '{self.PATTERN}' || true")
+
+    def freeze(self, ms: int, delay_s: float = 0.0) -> None:
+        """SIGSTOP now, SIGCONT after `ms` (done on the Pi, so laptop timing doesn't matter)."""
+        if delay_s:
+            time.sleep(delay_s)
+        sec = max(0.1, min(3.0, ms / 1000))
+        subprocess.Popen(["ssh", "-o", "BatchMode=yes", self.host,
+                          f"pkill -STOP -f '{self.PATTERN}'; sleep {sec:.3f}; pkill -CONT -f '{self.PATTERN}'"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+
+    def resume(self) -> None:
+        self._ssh(f"pkill -CONT -f '{self.PATTERN}' || true")
+
+    def _pump(self, proc: subprocess.Popen) -> None:
         for line in proc.stdout:
+            if proc is not self._proc:          # a restart happened: late lines of the old process are dropped
+                break
             self._lines.append(line.rstrip())
+            if len(self._lines) > self.max_lines:
+                cut = len(self._lines) - self.max_lines
+                del self._lines[:cut]
+                self._dropped += cut
 
     def mark(self) -> int:
-        return len(self._lines)
+        return self._dropped + len(self._lines)
 
     def lines_since(self, mark: int) -> list[str]:
-        return self._lines[mark:]
+        return self._lines[max(0, mark - self._dropped):]
 
     def running(self) -> bool:
         return bool(self._proc and self._proc.poll() is None)

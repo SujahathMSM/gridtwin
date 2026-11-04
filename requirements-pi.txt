@@ -1,0 +1,4 @@
+# On the Raspberry Pi (controller under test). gpiozero and lgpio come from Raspberry Pi OS:
+#   sudo apt install python3-gpiozero python3-lgpio
+#   python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r requirements-pi.txt
+pyserial==3.5

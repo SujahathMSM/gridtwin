@@ -1,21 +1,28 @@
 /*
- * GridTwin-HIL day 1 firmware for NUCLEO-G491RE
+ * GridTwin-HIL firmware for NUCLEO-G491RE
  *
  * What it does
  *   1. Emulates a 4-cell LiFePO4 battery (100 Ah) with a simple physics model.
  *   2. Serves it as a Modbus RTU slave (address 1) on USART1 (PC4 TX / PC5 RX),
  *      wired to the Raspberry Pi's UART.
- *   3. Lets you push cell 4 towards over-voltage with the potentiometer on PA0.
+ *   3. Emulates the battery's contactor interlock, driven by the controller:
+ *        legacy    PB4 high = trip (the original contract, rounds 1-5)
+ *        failsafe  PB4 high = permissive ("battery allowed"); low, a cut wire or
+ *                  a dead Pi = trip. PB5 carries a heartbeat: no edge for 250 ms
+ *                  opens the interlock (a hung or killed controller trips).
  *   4. Timestamps (1 us resolution, TIM2) the moment a cell crosses the limit,
- *      the first Modbus reply that reported it, and the Pi's safety-trip edge on
- *      PB4, then reports the latency over the ST-Link USB serial (LPUART1).
+ *      the first Modbus reply that reported it, and the moment the interlock
+ *      opened, then reports the latency over the ST-Link USB serial (LPUART1).
+ *   5. A fault library the agents can drive: stale data, late, lost, corrupted
+ *      and burst-lost replies, and a cut trip wire.
  *
  * CubeMX peripherals expected (see README.md):
  *   LPUART1  115200 8N1, PA2/PA3 (ST-Link virtual COM), global interrupt ON
  *   USART1   9600 8N1,   PC4/PC5,                      global interrupt ON
  *   TIM2     internal clock, period 0xFFFFFFFF (prescaler is set here at runtime)
  *   ADC1     IN1 single-ended on PA0
- *   PB4      GPIO_EXTI4, rising edge, pull-down, EXTI line[4] interrupt ON
+ *   PB4      GPIO_EXTI4, pull-down, EXTI line[4] interrupt ON (both edges set here)
+ *   PB5      heartbeat input, configured here (pull-down), no CubeMX change needed
  *   PA5      GPIO output (on-board LED LD2, heartbeat)
  */
 #include "main.h"
@@ -35,6 +42,7 @@ extern ADC_HandleTypeDef hadc1;     /* potentiometer on PA0           */
 /* ------------------------------------------------------------------ */
 /* Configuration                                                      */
 /* ------------------------------------------------------------------ */
+#define FW_VERSION         "gridtwin-2"
 #define MODBUS_ADDR        1u
 #define NUM_CELLS          4
 #define NUM_REGS           12u
@@ -51,6 +59,7 @@ extern ADC_HandleTypeDef hadc1;     /* potentiometer on PA0           */
 #define POT_MAX_DRIFT_MV   400      /* pot full-scale adds this to cell 4  */
 #define REARM_HYST_MV      50       /* re-arm when all cells < limit - this */
 #define NO_TRIP_TIMEOUT_MS 3000u
+#define HB_TIMEOUT_MS      250u     /* failsafe: no heartbeat edge this long = trip */
 
 /* Modbus register map (holding registers, function 0x03 / 0x06)
  *   0..3  cell 1..4 voltage            mV
@@ -59,7 +68,7 @@ extern ADC_HandleTypeDef hadc1;     /* potentiometer on PA0           */
  *   6     temperature                  0.1 degC
  *   7     state of charge              0.1 %
  *   8     grid voltage                 V
- *   9     status bits: b0 trip line high, b1 drift from pot
+ *   9     status bits: b0 interlock open (tripped), b1 drift from pot, b2 failsafe mode
  *   10    simulation tick (increments every 100 ms)
  *   11    charge current limit (RW)    0.1 A, default 1000 (100 A)
  */
@@ -83,9 +92,9 @@ static float    cmd_current_a  = 50.0f;  /* what the "charger" wants to push   *
 static uint16_t charge_limit_da = 1000;  /* written by the Pi (reg 11)          */
 static int      drift_from_pot = 0;   /* knob ignored until 'drift pot' (PA0 floats if unwired) */
 static float    manual_drift_mv = 0.0f;
-/* 'drift sync <mV>': apply the drift right after the next read reply goes out,
- * the worst moment for a polling controller (it has just looked, and won't look
- * again for a whole poll interval). Makes timing races reproducible. */
+/* 'drift sync <mV>': apply the drift right after the next read reply has left
+ * the wire, the worst moment for a polling controller (it has just looked, and
+ * won't look again for a whole poll interval). Makes timing races reproducible. */
 #define SYNC_TIMEOUT_MS    2000u
 static uint8_t  sync_armed;
 static float    sync_drift_mv;
@@ -93,13 +102,24 @@ static uint32_t sync_armed_ms;
 static uint16_t limit_mv       = 3650;
 static uint32_t deadline_ms    = 500;
 
+/* Interlock (what the controller's trip wire drives) */
+static uint8_t           ilk_failsafe;      /* 0 = legacy (high = trip), 1 = failsafe   */
+static uint8_t           flt_cut;           /* fault: trip wire cut (reads low)         */
+static uint32_t          hb_last_edge_us;   /* failsafe: last heartbeat edge on PB5     */
+static uint8_t           hb_level;
+static uint8_t           wd_open;           /* failsafe: heartbeat watchdog expired     */
+static uint32_t          hb_edges;
+
 /* trip timing (all in TIM2 microseconds) */
 static volatile uint32_t trip_edge_us;
 static volatile uint8_t  trip_edge_flag;
+static volatile uint8_t  trip_edge_cause;   /* 0 wire, 1 heartbeat lost, 2 wire cut   */
 static uint32_t cross_us;            /* 0 = no over-voltage pending */
-static uint32_t first_served_us;     /* first reply carrying the bad value */
+static uint32_t first_served_us;     /* first reply carrying the bad value (first byte) */
 static uint8_t  tripped;
 static uint8_t  no_trip_reported;
+static uint8_t  premature_reported;
+static uint32_t trip_done_us;        /* when the trip for this over-voltage happened */
 static uint32_t polls_served;
 
 /* Modbus receive (USART1, byte-by-byte interrupt) */
@@ -110,6 +130,12 @@ static volatile uint32_t mb_last_rx_us;
 static volatile uint8_t  mb_overflow;
 static volatile uint8_t  mb_frame_bad;      /* framing/parity/overrun error inside this frame */
 static uint32_t          mb_t35_us;
+
+/* Modbus transmit (interrupt-driven: the main loop never waits for the wire) */
+static uint8_t           mb_tx_buf[3 + 2 * NUM_REGS + 2];
+static volatile uint8_t  mb_tx_busy;
+static volatile uint8_t  mb_tx_done;        /* set by the TX-complete interrupt   */
+static uint8_t           mb_tx_is_read;
 
 /* Link-quality counters, reported in telemetry */
 static volatile uint32_t mb_noise_errors;   /* NE: glitch on a bit, byte usually still fine   */
@@ -123,30 +149,59 @@ static char              cmd_line[64];
 static volatile uint16_t cmd_len;
 static volatile uint8_t  cmd_ready;
 
-/* VCP transmit buffer (interrupt-driven so it never blocks Modbus) */
-static char vcp_buf[512];
+/* VCP output: ring buffer drained by interrupts, so printing never blocks */
+#define VCP_RING 2048u
+static char              vcp_ring[VCP_RING];
+static volatile uint16_t vr_head, vr_tail, vr_chunk;
+static volatile uint8_t  vcp_busy;
+static uint32_t          vcp_dropped;
 
 static uint32_t last_phys_ms, last_tele_ms;
+static const char *boot_reason = "power_on";
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
 static inline uint32_t now_us(void) { return htim2.Instance->CNT; }
 
-static void vcp_printf(int must_send, const char *fmt, ...)
+static void vcp_kick(void)
 {
-    /* Wait for the previous transmission if this message matters. */
-    uint32_t start = HAL_GetTick();
-    while (hlpuart1.gState != HAL_UART_STATE_READY) {
-        if (!must_send || (HAL_GetTick() - start) > 50u) return;
+    __disable_irq();
+    if (!vcp_busy && vr_head != vr_tail) {
+        uint16_t end = (vr_head > vr_tail) ? vr_head : (uint16_t)VCP_RING;
+        vr_chunk = (uint16_t)(end - vr_tail);
+        vcp_busy = 1;
+        __enable_irq();
+        if (HAL_UART_Transmit_IT(&hlpuart1, (uint8_t *)&vcp_ring[vr_tail], vr_chunk) != HAL_OK)
+            vcp_busy = 0;
+        return;
     }
+    __enable_irq();
+}
+
+/* Queue a message. Never waits: if the ring is full the message is dropped and
+ * counted (important ones are short; telemetry is the bulk). */
+static void vcp_printf(int important, const char *fmt, ...)
+{
+    char line[640];
     va_list ap;
     va_start(ap, fmt);
-    int n = vsnprintf(vcp_buf, sizeof vcp_buf, fmt, ap);
+    int n = vsnprintf(line, sizeof line, fmt, ap);
     va_end(ap);
     if (n <= 0) return;
-    if (n >= (int)sizeof vcp_buf) n = (int)sizeof vcp_buf - 1;
-    HAL_UART_Transmit_IT(&hlpuart1, (uint8_t *)vcp_buf, (uint16_t)n);
+    if (n >= (int)sizeof line) n = (int)sizeof line - 1;
+
+    __disable_irq();
+    uint16_t used = (uint16_t)((vr_head + VCP_RING - vr_tail) % VCP_RING);
+    uint16_t room = (uint16_t)(VCP_RING - 1u - used);
+    if (!important && room < VCP_RING / 2u) room = 0;   /* keep space for events */
+    if ((uint16_t)n > room) { vcp_dropped++; __enable_irq(); return; }
+    for (int k = 0; k < n; k++) {
+        vcp_ring[vr_head] = line[k];
+        vr_head = (uint16_t)((vr_head + 1u) % VCP_RING);
+    }
+    __enable_irq();
+    vcp_kick();
 }
 
 static uint16_t crc16_modbus(const uint8_t *p, uint16_t len)
@@ -158,6 +213,17 @@ static uint16_t crc16_modbus(const uint8_t *p, uint16_t len)
             crc = (crc & 1u) ? (uint16_t)((crc >> 1) ^ 0xA001u) : (uint16_t)(crc >> 1);
     }
     return crc;
+}
+
+/* Whole-string integer parse: "abc", "12x" and "" are rejected. */
+static int parse_long(const char *s, long *out)
+{
+    if (!s || !*s) return 0;
+    char *end;
+    long v = strtol(s, &end, 10);
+    if (*end != '\0') return 0;
+    *out = v;
+    return 1;
 }
 
 static float ocv_mv(float soc)
@@ -178,9 +244,35 @@ static uint16_t max_cell_mv(void)
     return m;
 }
 
-static uint8_t trip_line_high(void)
+/* The trip wire as the Nucleo sees it (a cut wire reads low: pull-down). */
+static uint8_t wire_high(void)
 {
+    if (flt_cut) return 0;
     return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_SET;
+}
+
+/* Is the interlock open, i.e. is the battery disconnected (tripped)? */
+static uint8_t trip_active(void)
+{
+    if (!ilk_failsafe) return wire_high();
+    return (uint8_t)(!wire_high() || wd_open);
+}
+
+/* Record the moment the interlock opened (first one wins until processed). */
+static void note_trip(uint32_t t_us, uint8_t cause)
+{
+    __disable_irq();
+    if (!trip_edge_flag) {
+        trip_edge_us = t_us;
+        trip_edge_cause = cause;
+        trip_edge_flag = 1;
+    }
+    __enable_irq();
+}
+
+static const char *cause_name(uint8_t c)
+{
+    return c == 1 ? "heartbeat_lost" : c == 2 ? "wire_cut" : "trip_line";
 }
 
 /* ------------------------------------------------------------------ */
@@ -227,7 +319,8 @@ static uint16_t reg_value(uint16_t r)
     case 6:  return (uint16_t)(int16_t)(bat.temp_c * 10.0f);
     case 7:  return (uint16_t)(bat.soc * 1000.0f);
     case 8:  return bat.grid_v;
-    case 9:  return (uint16_t)((trip_line_high() ? 1u : 0u) | (drift_from_pot ? 2u : 0u));
+    case 9:  return (uint16_t)((trip_active() ? 1u : 0u) | (drift_from_pot ? 2u : 0u) |
+                               (ilk_failsafe ? 4u : 0u));
     case 10: return bat.tick;
     case 11: return charge_limit_da;
     default: return 0;
@@ -250,6 +343,52 @@ static float read_pot_drift_mv(void)
     return (float)raw * (float)POT_MAX_DRIFT_MV / 4095.0f;
 }
 
+/* Recompute the cell voltages from the current state (no time passes), then
+ * do the over-voltage bookkeeping for the latency measurement. */
+static void update_cells(void)
+{
+    float base = ocv_mv(bat.soc) + bat.current_a * CELL_R_OHM * 1000.0f;
+    for (int c = 0; c < NUM_CELLS; c++) {
+        float v = base + (float)(c * 3); /* tiny natural spread between cells */
+        if (c == NUM_CELLS - 1) v += bat.drift_mv;
+        if (v < 0.0f) v = 0.0f;
+        if (v > 65000.0f) v = 65000.0f;
+        bat.cell_mv[c] = (uint16_t)v;
+    }
+
+    uint16_t vmax = max_cell_mv();
+    if (!tripped && cross_us == 0 && vmax >= limit_mv) {
+        cross_us = now_us();
+        if (cross_us == 0) cross_us = 1;      /* 0 means "none" */
+        first_served_us = 0;
+        no_trip_reported = 0;
+        premature_reported = 0;
+        if (trip_active()) {
+            /* Already in the safe state before the cell crossed the limit:
+             * the battery was never unprotected. */
+            tripped = 1;
+            trip_done_us = cross_us;
+            vcp_printf(1, "{\"event\":\"overvoltage\",\"cell_mv\":%u,\"limit_mv\":%u}\r\n",
+                       vmax, limit_mv);
+            vcp_printf(1,
+                "{\"event\":\"trip\",\"latency_us\":0,\"until_reported_us\":0,"
+                "\"reaction_us\":0,\"deadline_ms\":%lu,\"result\":\"PASS\","
+                "\"note\":\"already_tripped\"}\r\n", (unsigned long)deadline_ms);
+        } else {
+            vcp_printf(1, "{\"event\":\"overvoltage\",\"cell_mv\":%u,\"limit_mv\":%u}\r\n",
+                       vmax, limit_mv);
+        }
+    }
+    /* Re-arm once the cell is back to normal and the interlock closed again. */
+    if ((tripped || cross_us) && vmax + REARM_HYST_MV < limit_mv && !trip_active()) {
+        tripped = 0;
+        cross_us = 0;
+        first_served_us = 0;
+        vcp_printf(1, "{\"event\":\"rearmed\"}\r\n");
+    }
+}
+
+/* One 100 ms step of simulated time. */
 static void physics_step(void)
 {
     const float dt = (PHYS_STEP_MS / 1000.0f) * TIME_SCALE;
@@ -271,47 +410,14 @@ static void physics_step(void)
     float heat_w = i * i * CELL_R_OHM * NUM_CELLS;
     bat.temp_c += (heat_w - THERMAL_K_W_PER_K * (bat.temp_c - AMBIENT_C)) * dt / THERMAL_C_J_PER_K;
 
-    float base = ocv_mv(bat.soc) + i * CELL_R_OHM * 1000.0f;
-    for (int c = 0; c < NUM_CELLS; c++) {
-        float v = base + (float)(c * 3); /* tiny natural spread between cells */
-        if (c == NUM_CELLS - 1) v += bat.drift_mv;
-        if (v < 0.0f) v = 0.0f;
-        if (v > 65000.0f) v = 65000.0f;
-        bat.cell_mv[c] = (uint16_t)v;
-    }
     bat.tick++;
+    update_cells();
 
-    /* Over-voltage bookkeeping for the trip-latency measurement. */
-    uint16_t vmax = max_cell_mv();
-    if (!tripped && cross_us == 0 && vmax >= limit_mv) {
-        cross_us = now_us();
-        if (cross_us == 0) cross_us = 1;      /* 0 means "none" */
-        first_served_us = 0;
-        no_trip_reported = 0;
-        vcp_printf(1, "{\"event\":\"overvoltage\",\"cell_mv\":%u,\"limit_mv\":%u}\r\n",
-                   vmax, limit_mv);
-        if (trip_line_high()) {
-            /* The controller was already in its safe state before the cell
-             * crossed the limit: the battery was never unprotected. */
-            tripped = 1;
-            vcp_printf(1,
-                "{\"event\":\"trip\",\"latency_us\":0,\"until_reported_us\":0,"
-                "\"reaction_us\":0,\"deadline_ms\":%lu,\"result\":\"PASS\","
-                "\"note\":\"already_tripped\"}\r\n", (unsigned long)deadline_ms);
-        }
-    }
     if (cross_us && !tripped && !no_trip_reported &&
         (now_us() - cross_us) > NO_TRIP_TIMEOUT_MS * 1000u) {
         no_trip_reported = 1;
         vcp_printf(1, "{\"event\":\"no_trip\",\"result\":\"FAIL\",\"waited_ms\":%lu}\r\n",
                    (unsigned long)NO_TRIP_TIMEOUT_MS);
-    }
-    /* Re-arm once the cell is back to normal and the Pi released the trip. */
-    if ((tripped || cross_us) && vmax + REARM_HYST_MV < limit_mv && !trip_line_high()) {
-        tripped = 0;
-        cross_us = 0;
-        first_served_us = 0;
-        vcp_printf(1, "{\"event\":\"rearmed\"}\r\n");
     }
 }
 
@@ -329,21 +435,26 @@ static void apply_sync_drift(const char *how)
     sync_armed = 0;
     drift_from_pot = 0;
     manual_drift_mv = sync_drift_mv;
+    bat.drift_mv = sync_drift_mv;
     burst_left = flt_burst;
-    physics_step();          /* recompute the cells NOW: the over-voltage starts at this instant */
+    update_cells();          /* the over-voltage starts at this instant; no extra time step */
     vcp_printf(1, "{\"event\":\"drift_applied\",\"drift_mv\":%d,\"timing\":\"%s\"}\r\n",
                (int)sync_drift_mv, how);
 }
 
 static void mb_transmit(const uint8_t *frame, uint16_t len, uint8_t carries_ov)
 {
-    /* Timing starts when the bad value actually goes onto the wire. */
+    if (mb_tx_busy || len > sizeof mb_tx_buf) return;   /* half duplex: cannot happen */
+    /* Timing starts when the bad value starts to go onto the wire (first byte):
+     * the "reaction" figure therefore includes the reply's own wire time. */
     if (carries_ov && cross_us && !first_served_us) {
         first_served_us = now_us();
         if (first_served_us == 0) first_served_us = 1;
     }
-    HAL_UART_Transmit(&huart1, (uint8_t *)frame, len, 200);   /* returns after the last stop bit */
-    if (sync_armed && len > 2 && frame[1] == 0x03u) apply_sync_drift("after_reply");
+    memcpy(mb_tx_buf, frame, len);
+    mb_tx_is_read = (uint8_t)(len > 2 && frame[1] == 0x03u);
+    mb_tx_busy = 1;
+    if (HAL_UART_Transmit_IT(&huart1, mb_tx_buf, len) != HAL_OK) mb_tx_busy = 0;
 }
 
 static void mb_send_ov(uint8_t *frame, uint16_t len_without_crc, uint8_t carries_ov)
@@ -377,7 +488,7 @@ static void mb_send(uint8_t *frame, uint16_t len_without_crc)
 
 static void mb_send_pending(void)
 {
-    if (pend_len && (int32_t)(HAL_GetTick() - pend_due_ms) >= 0) {
+    if (pend_len && !mb_tx_busy && (int32_t)(HAL_GetTick() - pend_due_ms) >= 0) {
         uint16_t len = pend_len;
         pend_len = 0;
         mb_transmit(pend_buf, len, pend_ov);
@@ -476,14 +587,44 @@ static void mb_poll(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Interlock: heartbeat watchdog (failsafe mode)                      */
+/* ------------------------------------------------------------------ */
+static void interlock_poll(void)
+{
+    uint8_t lvl = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET;
+    uint32_t t = now_us();
+    if (lvl != hb_level) {
+        hb_level = lvl;
+        hb_last_edge_us = t;
+        hb_edges++;
+        if (wd_open) wd_open = 0;             /* heartbeat is back: watchdog closes */
+    }
+    if (ilk_failsafe && !wd_open && (t - hb_last_edge_us) > HB_TIMEOUT_MS * 1000u) {
+        uint8_t was_open = trip_active();
+        wd_open = 1;
+        if (!was_open) note_trip(hb_last_edge_us + HB_TIMEOUT_MS * 1000u, 1);
+    }
+}
+
+static void interlock_set(uint8_t failsafe)
+{
+    ilk_failsafe = failsafe;
+    hb_last_edge_us = now_us();               /* grace period starts now */
+    hb_level = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET;
+    wd_open = 0;
+    trip_edge_flag = 0;
+}
+
+/* ------------------------------------------------------------------ */
 /* Laptop commands                                                    */
 /* ------------------------------------------------------------------ */
 static void print_help(void)
 {
     vcp_printf(1,
         "{\"help\":\"status | baseline | i <amps> | drift <mV>|pot|sync <mV> | limit <mV> | "
-        "deadline <ms> | soc <pct> | grid <V> | fault stale on|off | fault delay <ms> | "
-        "fault drop <pct> | fault crc <pct> | fault burst <n> | fault clear | help\"}\r\n");
+        "deadline <ms> | soc <pct> | grid <V> | interlock legacy|failsafe | "
+        "fault stale on|off | fault delay <ms> | fault drop <pct> | fault crc <pct> | "
+        "fault burst <n> | fault cut on|off | fault clear | help\"}\r\n");
 }
 
 static void faults_clear(void)
@@ -495,6 +636,7 @@ static void faults_clear(void)
     flt_burst = 0;
     burst_left = 0;
     pend_len = 0;
+    flt_cut = 0;
 }
 
 static void handle_fault(const char *what, const char *val)
@@ -506,16 +648,27 @@ static void handle_fault(const char *what, const char *val)
         return;
     }
     if (!val) { vcp_printf(1, "{\"error\":\"missing value for fault %s\"}\r\n", what); return; }
-    long v = strtol(val, NULL, 10);
 
-    if (!strcmp(what, "stale")) {
-        if (!strcmp(val, "on")) {
-            for (uint16_t r = 0; r < NUM_REGS; r++) flt_stale_regs[r] = reg_value(r);
-            flt_stale = 1;
-        } else if (!strcmp(val, "off")) {
-            flt_stale = 0;
-        } else { vcp_printf(1, "{\"error\":\"fault stale on|off\"}\r\n"); return; }
-    } else if (!strcmp(what, "delay")) {
+    if (!strcmp(what, "stale") || !strcmp(what, "cut")) {
+        uint8_t on;
+        if (!strcmp(val, "on")) on = 1;
+        else if (!strcmp(val, "off")) on = 0;
+        else { vcp_printf(1, "{\"error\":\"fault %s on|off\"}\r\n", what); return; }
+        if (what[0] == 's') {
+            if (on) for (uint16_t r = 0; r < NUM_REGS; r++) flt_stale_regs[r] = reg_value(r);
+            flt_stale = on;
+        } else {
+            uint8_t was_open = trip_active();
+            flt_cut = on;
+            if (on && !was_open && trip_active()) note_trip(now_us(), 2);
+        }
+        vcp_printf(1, "{\"ok\":\"fault %s %s\"}\r\n", what, val);
+        return;
+    }
+
+    long v;
+    if (!parse_long(val, &v)) { vcp_printf(1, "{\"error\":\"fault %s needs a number\"}\r\n", what); return; }
+    if (!strcmp(what, "delay")) {
         if (v < 0 || v > 2000) { vcp_printf(1, "{\"error\":\"delay must be 0..2000 ms\"}\r\n"); return; }
         flt_delay_ms = (uint32_t)v;
         if (!v) pend_len = 0;
@@ -533,7 +686,7 @@ static void handle_fault(const char *what, const char *val)
         vcp_printf(1, "{\"error\":\"unknown fault %s\"}\r\n", what);
         return;
     }
-    vcp_printf(1, "{\"ok\":\"fault %s %s\"}\r\n", what, val);
+    vcp_printf(1, "{\"ok\":\"fault %s %ld\"}\r\n", what, v);
 }
 
 static void handle_command(char *line)
@@ -546,7 +699,7 @@ static void handle_command(char *line)
     if (!strcmp(cmd, "status")) { last_tele_ms = 0; return; }
     if (!strcmp(cmd, "fault")) { handle_fault(arg, strtok(NULL, " \t")); return; }
     if (!strcmp(cmd, "baseline")) {
-        /* Known starting point for every test run. */
+        /* Known starting point for every test run (the interlock mode stays). */
         faults_clear();
         drift_from_pot = 0;
         manual_drift_mv = 0.0f;
@@ -560,10 +713,16 @@ static void handle_command(char *line)
         return;
     }
     if (!arg) { vcp_printf(1, "{\"error\":\"missing value for %s\"}\r\n", cmd); return; }
+    if (!strcmp(cmd, "interlock")) {
+        if (!strcmp(arg, "legacy")) interlock_set(0);
+        else if (!strcmp(arg, "failsafe")) interlock_set(1);
+        else { vcp_printf(1, "{\"error\":\"interlock legacy|failsafe\"}\r\n"); return; }
+        vcp_printf(1, "{\"ok\":\"interlock %s\"}\r\n", arg);
+        return;
+    }
     if (!strcmp(cmd, "drift") && !strcmp(arg, "sync")) {
-        char *val = strtok(NULL, " \t");
-        if (!val) { vcp_printf(1, "{\"error\":\"drift sync needs mV\"}\r\n"); return; }
-        long mv = strtol(val, NULL, 10);
+        long mv;
+        if (!parse_long(strtok(NULL, " \t"), &mv)) { vcp_printf(1, "{\"error\":\"drift sync needs mV\"}\r\n"); return; }
         if (mv < -1000 || mv > 1000) { vcp_printf(1, "{\"error\":\"drift must be -1000..1000 mV\"}\r\n"); return; }
         sync_drift_mv = (float)mv;
         sync_armed_ms = HAL_GetTick();
@@ -571,15 +730,24 @@ static void handle_command(char *line)
         vcp_printf(1, "{\"ok\":\"drift sync %ld\"}\r\n", mv);
         return;
     }
+    if (!strcmp(cmd, "drift") && !strcmp(arg, "pot")) {
+        sync_armed = 0;
+        drift_from_pot = 1;
+        vcp_printf(1, "{\"ok\":\"drift pot\"}\r\n");
+        return;
+    }
 
-    long v = strtol(arg, NULL, 10);
+    long v;
+    if (!parse_long(arg, &v)) { vcp_printf(1, "{\"error\":\"%s needs a whole number\"}\r\n", cmd); return; }
     if (!strcmp(cmd, "i")) {
         if (v < -200 || v > 200) { vcp_printf(1, "{\"error\":\"i must be -200..200 A\"}\r\n"); return; }
         cmd_current_a = (float)v;
     } else if (!strcmp(cmd, "drift")) {
+        if (v < -1000 || v > 1000) { vcp_printf(1, "{\"error\":\"drift must be -1000..1000 mV\"}\r\n"); return; }
         sync_armed = 0;
-        if (!strcmp(arg, "pot")) { drift_from_pot = 1; }
-        else { drift_from_pot = 0; manual_drift_mv = (float)v; burst_left = flt_burst; }
+        drift_from_pot = 0;
+        manual_drift_mv = (float)v;
+        burst_left = flt_burst;
     } else if (!strcmp(cmd, "limit")) {
         if (v < 3000 || v > 4200) { vcp_printf(1, "{\"error\":\"limit must be 3000..4200 mV\"}\r\n"); return; }
         limit_mv = (uint16_t)v;
@@ -596,7 +764,7 @@ static void handle_command(char *line)
         vcp_printf(1, "{\"error\":\"unknown command %s\"}\r\n", cmd);
         return;
     }
-    vcp_printf(1, "{\"ok\":\"%s %s\"}\r\n", cmd, arg);
+    vcp_printf(1, "{\"ok\":\"%s %ld\"}\r\n", cmd, v);
 }
 
 /* ------------------------------------------------------------------ */
@@ -619,6 +787,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             }
         }
         HAL_UART_Receive_IT(&hlpuart1, &cmd_rx_byte, 1);
+    }
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == huart1.Instance) {
+        mb_tx_busy = 0;
+        mb_tx_done = 1;                       /* the last stop bit has left the wire */
+    } else if (huart->Instance == hlpuart1.Instance) {
+        vr_tail = (uint16_t)((vr_tail + vr_chunk) % VCP_RING);
+        vcp_busy = 0;
+        vcp_kick();
     }
 }
 
@@ -652,10 +832,34 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin == GPIO_PIN_4 && !trip_edge_flag) {
-        trip_edge_us = now_us();      /* timestamp first, everything else later */
-        trip_edge_flag = 1;
-    }
+    if (GPIO_Pin != GPIO_PIN_4) return;
+    uint32_t t = now_us();                    /* timestamp first, everything else later */
+    if (flt_cut) return;                      /* the wire is "cut": the Nucleo can't see it */
+    uint8_t high = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_SET;
+    /* legacy: rising edge = trip. failsafe: falling edge (permissive lost) = trip,
+     * unless the heartbeat watchdog had already opened the interlock. */
+    if ((!ilk_failsafe && high) || (ilk_failsafe && !high && !wd_open)) note_trip(t, 0);
+}
+
+/* ------------------------------------------------------------------ */
+/* Independent watchdog (a hung emulator would otherwise look like a   */
+/* perfectly stale BMS). Register-level: no CubeMX change needed.      */
+/* ------------------------------------------------------------------ */
+static void iwdg_start(void)
+{
+    if (RCC->CSR & RCC_CSR_IWDGRSTF) boot_reason = "watchdog";
+    else if (RCC->CSR & RCC_CSR_SFTRSTF) boot_reason = "software";
+    else if (RCC->CSR & RCC_CSR_BORRSTF) boot_reason = "brown_out";
+    else if (RCC->CSR & RCC_CSR_PINRSTF) boot_reason = "reset_pin";
+    RCC->CSR |= RCC_CSR_RMVF;
+
+    DBGMCU->APB1FZR1 |= DBGMCU_APB1FZR1_DBG_IWDG_STOP;   /* pauses at a breakpoint */
+    IWDG->KR = 0xCCCCu;                                  /* start (LSI ~32 kHz)    */
+    IWDG->KR = 0x5555u;                                  /* unlock PR/RLR          */
+    IWDG->PR = 4u;                                       /* /64 -> 2 ms per count  */
+    IWDG->RLR = 1000u;                                   /* ~2 s timeout           */
+    for (uint32_t n = 0; IWDG->SR && n < 1000000u; n++) { }
+    IWDG->KR = 0xAAAAu;                                  /* reload                 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -673,6 +877,21 @@ void app_init(void)
 
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
 
+    /* PB4 trip wire: interrupt on both edges (legacy trips on rising, failsafe on falling). */
+    EXTI->RTSR1 |= EXTI_RTSR1_RT4;
+    EXTI->FTSR1 |= EXTI_FTSR1_FT4;
+    /* PB5 heartbeat input with pull-down (a missing wire = no heartbeat). */
+    GPIO_InitTypeDef gi = {0};
+    gi.Pin = GPIO_PIN_5;
+    gi.Mode = GPIO_MODE_INPUT;
+    gi.Pull = GPIO_PULLDOWN;
+    HAL_GPIO_Init(GPIOB, &gi);
+
+    /* The trip timestamp is the product: its interrupt goes first. */
+    HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(USART1_IRQn, 1, 0);
+    HAL_NVIC_SetPriority(LPUART1_IRQn, 2, 0);
+
     /* Modbus inter-frame silence: 3.5 characters, fixed 1750 us above 19200 baud. */
     uint32_t baud = huart1.Init.BaudRate;
     mb_t35_us = (baud > 19200u) ? 1750u : (uint32_t)((35u * 11u * 1000000u) / (10u * baud)) + 1u;
@@ -680,41 +899,76 @@ void app_init(void)
     HAL_UART_Receive_IT(&huart1, &mb_rx_byte, 1);
     HAL_UART_Receive_IT(&hlpuart1, &cmd_rx_byte, 1);
 
+    iwdg_start();
+    interlock_set(0);
     physics_step();
-    vcp_printf(1, "{\"event\":\"boot\",\"fw\":\"gridtwin-day1\",\"modbus_baud\":%lu,\"t35_us\":%lu}\r\n",
-               (unsigned long)baud, (unsigned long)mb_t35_us);
+    vcp_printf(1, "{\"event\":\"boot\",\"fw\":\"" FW_VERSION "\",\"reset\":\"%s\","
+               "\"modbus_baud\":%lu,\"t35_us\":%lu}\r\n",
+               boot_reason, (unsigned long)baud, (unsigned long)mb_t35_us);
     last_phys_ms = HAL_GetTick();
     last_tele_ms = HAL_GetTick();
 }
 
 void app_loop(void)
 {
+    IWDG->KR = 0xAAAAu;                       /* still alive */
+
     mb_poll();
     mb_send_pending();
+    interlock_poll();
+
+    if (mb_tx_done) {                         /* a reply has completely left the wire */
+        mb_tx_done = 0;
+        if (sync_armed && mb_tx_is_read) apply_sync_drift("after_reply");
+    }
     /* No read reply went out (controller stopped, or every reply dropped):
      * apply the drift anyway so the scenario still runs. */
     if (sync_armed && HAL_GetTick() - sync_armed_ms >= SYNC_TIMEOUT_MS) apply_sync_drift("timeout");
 
     if (trip_edge_flag) {
+        __disable_irq();
         uint32_t edge = trip_edge_us;
+        uint8_t cause = trip_edge_cause;
         trip_edge_flag = 0;
-        if (cross_us && !tripped) {
+        __enable_irq();
+        if (cross_us && !tripped && (int32_t)(edge - cross_us) < 0) {
+            /* The interlock opened before the crossing was recorded: safe state. */
+            tripped = 1;
+            trip_done_us = cross_us;
+            vcp_printf(1, "{\"event\":\"trip\",\"latency_us\":0,\"until_reported_us\":0,"
+                       "\"reaction_us\":0,\"deadline_ms\":%lu,\"result\":\"PASS\","
+                       "\"note\":\"already_tripped\",\"cause\":\"%s\"}\r\n",
+                       (unsigned long)deadline_ms, cause_name(cause));
+        } else if (cross_us && !tripped) {
             uint32_t total  = edge - cross_us;
             uint32_t detect = first_served_us ? first_served_us - cross_us : 0u;
             uint32_t react  = first_served_us ? edge - first_served_us : 0u;
             tripped = 1;
+            trip_done_us = edge;
             vcp_printf(1,
                 "{\"event\":\"trip\",\"latency_us\":%lu,\"until_reported_us\":%lu,"
-                "\"reaction_us\":%lu,\"deadline_ms\":%lu,\"result\":\"%s\"}\r\n",
+                "\"reaction_us\":%lu,\"deadline_ms\":%lu,\"result\":\"%s\",\"cause\":\"%s\"}\r\n",
                 (unsigned long)total, (unsigned long)detect, (unsigned long)react,
-                (unsigned long)deadline_ms, (total <= deadline_ms * 1000u) ? "PASS" : "FAIL");
+                (unsigned long)deadline_ms, (total <= deadline_ms * 1000u) ? "PASS" : "FAIL",
+                cause_name(cause));
         } else if (!cross_us) {
-            vcp_printf(1, "{\"event\":\"spurious_trip\",\"note\":\"trip with no over-voltage\"}\r\n");
+            vcp_printf(1, "{\"event\":\"spurious_trip\",\"cause\":\"%s\",\"note\":\"trip with no over-voltage\"}\r\n",
+                       cause_name(cause));
         }
+    }
+
+    /* The interlock closed again while a cell is still over the limit: the
+     * controller released the trip too early. The battery is unprotected. */
+    if (tripped && cross_us && !premature_reported && !trip_active() && max_cell_mv() >= limit_mv) {
+        premature_reported = 1;
+        vcp_printf(1, "{\"event\":\"premature_release\",\"result\":\"FAIL\",\"cell_mv\":%u,"
+                   "\"held_ms\":%lu}\r\n", max_cell_mv(),
+                   (unsigned long)((now_us() - trip_done_us) / 1000u));
     }
 
     if (cmd_ready) {
         char line[sizeof cmd_line];
+        __DMB();                              /* read the line only after the flag */
         memcpy(line, cmd_line, sizeof line);
         cmd_len = 0;
         cmd_ready = 0;
@@ -729,19 +983,23 @@ void app_loop(void)
     if (last_tele_ms == 0 || ms - last_tele_ms >= TELEMETRY_MS) {
         last_tele_ms = ms ? ms : 1;
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);   /* heartbeat on LD2 */
+        uint32_t hb_ms = (now_us() - hb_last_edge_us) / 1000u;
         vcp_printf(0,
             "{\"cells\":[%u,%u,%u,%u],\"i_da\":%d,\"temp_dc\":%d,\"soc_pm\":%u,"
             "\"grid_v\":%u,\"drift_mv\":%d,\"limit_mv\":%u,\"trip\":%u,\"polls\":%lu,"
             "\"noise_err\":%lu,\"frame_err\":%lu,\"crc_err\":%lu,\"short_err\":%lu,"
-            "\"f_stale\":%u,\"f_delay_ms\":%lu,\"f_drop\":%u,\"f_crc\":%u,"
-            "\"dropped\":%lu,\"corrupted\":%lu}\r\n",
+            "\"f_stale\":%u,\"f_delay_ms\":%lu,\"f_drop\":%u,\"f_crc\":%u,\"f_burst\":%u,\"f_cut\":%u,"
+            "\"dropped\":%lu,\"corrupted\":%lu,\"ilk\":\"%s\",\"hb_ms\":%lu,\"vcp_drop\":%lu}\r\n",
             bat.cell_mv[0], bat.cell_mv[1], bat.cell_mv[2], bat.cell_mv[3],
             (int)(bat.current_a * 10.0f), (int)(bat.temp_c * 10.0f),
             (unsigned)(bat.soc * 1000.0f), bat.grid_v, (int)bat.drift_mv, limit_mv,
-            (unsigned)trip_line_high(), (unsigned long)polls_served,
+            (unsigned)trip_active(), (unsigned long)polls_served,
             (unsigned long)mb_noise_errors, (unsigned long)mb_frame_errors,
             (unsigned long)mb_crc_errors, (unsigned long)mb_short_frames,
             (unsigned)flt_stale, (unsigned long)flt_delay_ms, (unsigned)flt_drop_pct,
-            (unsigned)flt_crc_pct, (unsigned long)flt_dropped, (unsigned long)flt_corrupted);
+            (unsigned)flt_crc_pct, (unsigned)flt_burst, (unsigned)flt_cut,
+            (unsigned long)flt_dropped, (unsigned long)flt_corrupted,
+            ilk_failsafe ? "failsafe" : "legacy", (unsigned long)(hb_ms > 99999u ? 99999u : hb_ms),
+            (unsigned long)vcp_dropped);
     }
 }
