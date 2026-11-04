@@ -20,6 +20,12 @@ and then attack their own fix.
 
 <br>
 
+<a href="https://youtu.be/pywOyFn6CGQ"><img src="docs/images/demo-thumbnail.png" width="640" alt="Watch the 3-minute demo on YouTube"></a>
+
+**[▶ Watch the 3-minute demo](https://youtu.be/pywOyFn6CGQ)**
+
+<br>
+
 <img src="docs/images/setup.jpeg" width="760" alt="The GridTwin-HIL bench: a Nucleo-G491RE battery emulator wired to a Raspberry Pi 5 controller, with the trip LED on a breadboard">
 
 <sub><b>The bench.</b> Nucleo-G491RE battery emulator (top) · Raspberry Pi 5 controller under test (right) · trip line and LED on the breadboard (left). No battery, no mains, nothing dangerous: the danger is emulated.</sub>
@@ -582,7 +588,7 @@ and the judge on Muse Spark Open ([`runs/20261104-211309`](runs/20261104-211309/
 | Round | What happened | Hardware |
 |---|---|---|
 | 1 | The attacker found **both** early bugs in its first five runs: frozen data (no trip, cell at 3795 mV) and the 500 ms deadline miss on a healthy link. The judge reproduced both | ❌ no trip · ❌ 503.6 ms |
-| 1 | One patch for both: tick freshness check, 100 ms safety loop, time-based fail-safe, release only on fresh data. All 12 checks passed on the first attempt, hidden ones included | ✅ worst case **103.5 ms** |
+| 1 | One patch for both: tick freshness check, 100 ms safety loop, time-based fail-safe, release only on fresh data. All 11 checks (19 runs with repeats) passed on the first attempt, hidden ones included | ✅ worst case **103.5 ms** |
 | 2 | Six attacks (stale data, 200 and 350 ms delays, a 10-reply blackout, fast polling): nothing broke | ✅ blackout trips in 458.3 ms |
 
 The agents took a shorter path than in the first campaign, but to the same root causes, and the fix held under

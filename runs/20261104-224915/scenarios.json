@@ -1,0 +1,36 @@
+[
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "stale",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 200
+    },
+    "result": "FAIL",
+    "max_cell_mv_real": 3695,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "failure": "no_trip",
+    "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+    "modbus_link": {
+      "polls_answered": 24,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.0%  tick=28402  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.0%  tick=28402  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.0%  tick=28402  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.0%  tick=28402  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.0%  tick=28402  trip=off"
+    ],
+    "elapsed_s": 4.2,
+    "hypothesis": "manual: stale"
+  }
+]

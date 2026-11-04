@@ -1,0 +1,36 @@
+[
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "cut",
+          "value": "on"
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 200
+    },
+    "result": "FAIL",
+    "max_cell_mv_real": 3695,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "failure": "no_trip",
+    "detail": "cell over the limit for 3000 ms and the controller never raised the trip line",
+    "modbus_link": {
+      "polls_answered": 40,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=30871  trip=off",
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=30882  trip=ON",
+      "cells=[3286, 3289, 3292, 3695] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=30893  trip=ON",
+      "cells=[3286, 3289, 3292, 3695] mV  I=10.0 A  T=30.1 C  SOC=50.7%  tick=30904  trip=ON"
+    ],
+    "elapsed_s": 4.2,
+    "hypothesis": "manual: cut"
+  }
+]

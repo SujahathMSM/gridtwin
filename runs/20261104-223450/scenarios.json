@@ -1,0 +1,31 @@
+[
+  {
+    "scenario": {
+      "faults": [],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "random",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3695,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "latency_ms": 163.4,
+    "until_reported_ms": 129.8,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 16,
+      "replies_dropped": 0,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=19753  trip=off",
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=19763  trip=ON",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=19773  trip=ON"
+    ],
+    "elapsed_s": 2.8,
+    "hypothesis": "manual: healthy"
+  }
+]
