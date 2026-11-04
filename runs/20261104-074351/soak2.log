@@ -1,0 +1,1257 @@
+controller: polling /dev/ttyAMA0 @ 9600 every 50 ms, trip at 3650 mV, re-arm below 3550 mV
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5216  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5226  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5236  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5246  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5256  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5266  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5276  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5286  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5296  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5307  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5317  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5327  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5337  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5347  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5357  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5367  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5377  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5387  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5397  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5407  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5417  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5427  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5437  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5447  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5457  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5467  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5477  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5487  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5497  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5507  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5517  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5527  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=5537  trip=off
+cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.0%  tick=5547  trip=off
+cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.2%  tick=5557  trip=off
+cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.4%  tick=5567  trip=off
+cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.5%  tick=5577  trip=off
+cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.7%  tick=5587  trip=off
+cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.9%  tick=5597  trip=off
+cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.0%  tick=5607  trip=off
+cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.2%  tick=5617  trip=off
+cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.4%  tick=5627  trip=off
+cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.5%  tick=5637  trip=off
+cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.0 C  SOC=51.7%  tick=5647  trip=off
+cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.9%  tick=5657  trip=off
+cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=52.0%  tick=5667  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.2%  tick=5677  trip=off
+cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.4%  tick=5687  trip=off
+modbus error #1: no reply (timeout)
+cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.5%  tick=5697  trip=off
+cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.7%  tick=5708  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.9%  tick=5718  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=53.1%  tick=5728  trip=off
+modbus error #1: no reply (timeout)
+cells=[3291, 3294, 3297, 3300] mV  I=10.0 A  T=30.1 C  SOC=53.2%  tick=5738  trip=off
+modbus error #1: no reply (timeout)
+cells=[3291, 3294, 3297, 3300] mV  I=10.0 A  T=30.1 C  SOC=53.4%  tick=5748  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3291, 3294, 3297, 3300] mV  I=10.0 A  T=30.1 C  SOC=53.6%  tick=5759  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3292, 3295, 3298, 3301] mV  I=10.0 A  T=30.1 C  SOC=53.8%  tick=5770  trip=off
+cells=[3292, 3295, 3298, 3301] mV  I=10.0 A  T=30.1 C  SOC=53.9%  tick=5780  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3292, 3295, 3298, 3301] mV  I=10.0 A  T=30.1 C  SOC=54.1%  tick=5790  trip=off
+modbus error #1: no reply (timeout)
+cells=[3293, 3296, 3299, 3302] mV  I=10.0 A  T=30.1 C  SOC=54.3%  tick=5800  trip=off
+modbus error #1: no reply (timeout)
+cells=[3293, 3296, 3299, 3302] mV  I=10.0 A  T=30.1 C  SOC=54.4%  tick=5811  trip=off
+modbus error #1: no reply (timeout)
+cells=[3293, 3296, 3299, 3302] mV  I=10.0 A  T=30.1 C  SOC=54.6%  tick=5821  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3294, 3297, 3300, 3303] mV  I=10.0 A  T=30.1 C  SOC=54.8%  tick=5831  trip=off
+modbus error #1: no reply (timeout)
+cells=[3294, 3297, 3300, 3303] mV  I=10.0 A  T=30.1 C  SOC=54.9%  tick=5841  trip=off
+cells=[3294, 3297, 3300, 3303] mV  I=10.0 A  T=30.1 C  SOC=55.1%  tick=5851  trip=off
+modbus error #1: no reply (timeout)
+cells=[3294, 3297, 3300, 3303] mV  I=10.0 A  T=30.1 C  SOC=55.3%  tick=5861  trip=off
+cells=[3295, 3298, 3301, 3304] mV  I=10.0 A  T=30.1 C  SOC=55.4%  tick=5871  trip=off
+modbus error #1: no reply (timeout)
+cells=[3295, 3298, 3301, 3304] mV  I=10.0 A  T=30.1 C  SOC=55.6%  tick=5881  trip=off
+cells=[3295, 3298, 3301, 3304] mV  I=10.0 A  T=30.1 C  SOC=55.8%  tick=5892  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3296, 3299, 3302, 3305] mV  I=10.0 A  T=30.1 C  SOC=56.0%  tick=5902  trip=off
+modbus error #1: no reply (timeout)
+cells=[3296, 3299, 3302, 3305] mV  I=10.0 A  T=30.1 C  SOC=56.1%  tick=5912  trip=off
+modbus error #1: no reply (timeout)
+cells=[3296, 3299, 3302, 3305] mV  I=10.0 A  T=30.1 C  SOC=56.3%  tick=5922  trip=off
+modbus error #1: no reply (timeout)
+cells=[3297, 3300, 3303, 3306] mV  I=10.0 A  T=30.1 C  SOC=56.5%  tick=5933  trip=off
+modbus error #1: no reply (timeout)
+cells=[3297, 3300, 3303, 3306] mV  I=10.0 A  T=30.1 C  SOC=56.6%  tick=5943  trip=off
+modbus error #1: no reply (timeout)
+cells=[3297, 3300, 3303, 3306] mV  I=10.0 A  T=30.1 C  SOC=56.8%  tick=5953  trip=off
+cells=[3298, 3301, 3304, 3307] mV  I=10.0 A  T=30.1 C  SOC=57.0%  tick=5963  trip=off
+modbus error #1: no reply (timeout)
+cells=[3298, 3301, 3304, 3307] mV  I=10.0 A  T=30.1 C  SOC=57.1%  tick=5973  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3298, 3301, 3304, 3307] mV  I=10.0 A  T=30.1 C  SOC=57.3%  tick=5984  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3299, 3302, 3305, 3308] mV  I=10.0 A  T=30.1 C  SOC=57.5%  tick=5994  trip=off
+cells=[3299, 3302, 3305, 3308] mV  I=10.0 A  T=30.1 C  SOC=57.7%  tick=6004  trip=off
+modbus error #1: no reply (timeout)
+cells=[3299, 3302, 3305, 3308] mV  I=10.0 A  T=30.1 C  SOC=57.8%  tick=6014  trip=off
+cells=[3300, 3303, 3306, 3309] mV  I=10.0 A  T=30.1 C  SOC=58.0%  tick=6024  trip=off
+cells=[3300, 3303, 3306, 3309] mV  I=10.0 A  T=30.1 C  SOC=58.2%  tick=6034  trip=off
+modbus error #1: no reply (timeout)
+cells=[3300, 3303, 3306, 3309] mV  I=10.0 A  T=30.1 C  SOC=58.3%  tick=6044  trip=off
+cells=[3301, 3304, 3307, 3310] mV  I=10.0 A  T=30.1 C  SOC=58.5%  tick=6054  trip=off
+cells=[3301, 3304, 3307, 3310] mV  I=10.0 A  T=30.1 C  SOC=58.7%  tick=6064  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3301, 3304, 3307, 3310] mV  I=10.0 A  T=30.1 C  SOC=58.8%  tick=6075  trip=off
+modbus error #1: no reply (timeout)
+cells=[3301, 3304, 3307, 3310] mV  I=10.0 A  T=30.1 C  SOC=59.0%  tick=6085  trip=off
+modbus error #1: no reply (timeout)
+cells=[3302, 3305, 3308, 3311] mV  I=10.0 A  T=30.1 C  SOC=59.2%  tick=6095  trip=off
+cells=[3302, 3305, 3308, 3311] mV  I=10.0 A  T=30.1 C  SOC=59.3%  tick=6105  trip=off
+modbus error #1: no reply (timeout)
+cells=[3302, 3305, 3308, 3311] mV  I=10.0 A  T=30.1 C  SOC=59.5%  tick=6115  trip=off
+cells=[3303, 3306, 3309, 3312] mV  I=10.0 A  T=30.1 C  SOC=59.7%  tick=6125  trip=off
+cells=[3303, 3306, 3309, 3312] mV  I=10.0 A  T=30.1 C  SOC=59.8%  tick=6135  trip=off
+cells=[3303, 3306, 3309, 3312] mV  I=10.0 A  T=30.1 C  SOC=60.0%  tick=6145  trip=off
+modbus error #1: no reply (timeout)
+cells=[3304, 3307, 3310, 3313] mV  I=10.0 A  T=30.1 C  SOC=60.2%  tick=6156  trip=off
+cells=[3304, 3307, 3310, 3313] mV  I=10.0 A  T=30.1 C  SOC=60.4%  tick=6166  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3304, 3307, 3310, 3313] mV  I=10.0 A  T=30.1 C  SOC=60.5%  tick=6177  trip=off
+modbus error #1: no reply (timeout)
+cells=[3305, 3308, 3311, 3314] mV  I=10.0 A  T=30.1 C  SOC=60.7%  tick=6187  trip=off
+modbus error #1: no reply (timeout)
+cells=[3305, 3308, 3311, 3314] mV  I=10.0 A  T=30.1 C  SOC=60.9%  tick=6197  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3305, 3308, 3311, 3314] mV  I=10.0 A  T=30.1 C  SOC=61.0%  tick=6207  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3306, 3309, 3312, 3315] mV  I=10.0 A  T=30.1 C  SOC=61.2%  tick=6217  trip=off
+cells=[3306, 3309, 3312, 3315] mV  I=10.0 A  T=30.1 C  SOC=61.4%  tick=6227  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3306, 3309, 3312, 3315] mV  I=10.0 A  T=30.1 C  SOC=61.6%  tick=6238  trip=off
+modbus error #1: no reply (timeout)
+cells=[3307, 3310, 3313, 3316] mV  I=10.0 A  T=30.1 C  SOC=61.7%  tick=6248  trip=off
+cells=[3307, 3310, 3313, 3316] mV  I=10.0 A  T=30.1 C  SOC=61.9%  tick=6258  trip=off
+cells=[3307, 3310, 3313, 3316] mV  I=10.0 A  T=30.1 C  SOC=62.1%  tick=6268  trip=off
+modbus error #1: no reply (timeout)
+cells=[3308, 3311, 3314, 3317] mV  I=10.0 A  T=30.1 C  SOC=62.2%  tick=6278  trip=off
+modbus error #1: no reply (timeout)
+cells=[3308, 3311, 3314, 3317] mV  I=10.0 A  T=30.1 C  SOC=62.4%  tick=6288  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3308, 3311, 3314, 3317] mV  I=10.0 A  T=30.1 C  SOC=62.6%  tick=6299  trip=off
+modbus error #1: no reply (timeout)
+cells=[3308, 3311, 3314, 3317] mV  I=10.0 A  T=30.1 C  SOC=62.7%  tick=6309  trip=off
+cells=[3309, 3312, 3315, 3318] mV  I=10.0 A  T=30.1 C  SOC=62.9%  tick=6319  trip=off
+modbus error #1: no reply (timeout)
+cells=[3309, 3312, 3315, 3318] mV  I=10.0 A  T=30.1 C  SOC=63.1%  tick=6329  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3309, 3312, 3315, 3318] mV  I=10.0 A  T=30.1 C  SOC=63.3%  tick=6340  trip=off
+cells=[3310, 3313, 3316, 3319] mV  I=10.0 A  T=30.1 C  SOC=63.4%  tick=6350  trip=off
+modbus error #1: no reply (timeout)
+cells=[3310, 3313, 3316, 3319] mV  I=10.0 A  T=30.1 C  SOC=63.6%  tick=6360  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3310, 3313, 3316, 3319] mV  I=10.0 A  T=30.1 C  SOC=63.8%  tick=6371  trip=off
+modbus error #1: no reply (timeout)
+cells=[3311, 3314, 3317, 3320] mV  I=10.0 A  T=30.1 C  SOC=63.9%  tick=6381  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3311, 3314, 3317, 3320] mV  I=10.0 A  T=30.1 C  SOC=64.1%  tick=6391  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3311, 3314, 3317, 3320] mV  I=10.0 A  T=30.1 C  SOC=64.3%  tick=6402  trip=off
+cells=[3312, 3315, 3318, 3321] mV  I=10.0 A  T=30.1 C  SOC=64.5%  tick=6412  trip=off
+cells=[3312, 3315, 3318, 3321] mV  I=10.0 A  T=30.1 C  SOC=64.6%  tick=6422  trip=off
+modbus error #1: no reply (timeout)
+cells=[3312, 3315, 3318, 3321] mV  I=10.0 A  T=30.1 C  SOC=64.8%  tick=6432  trip=off
+modbus error #1: no reply (timeout)
+cells=[3313, 3316, 3319, 3322] mV  I=10.0 A  T=30.1 C  SOC=65.0%  tick=6442  trip=off
+modbus error #1: no reply (timeout)
+cells=[3313, 3316, 3319, 3322] mV  I=10.0 A  T=30.1 C  SOC=65.1%  tick=6452  trip=off
+cells=[3313, 3316, 3319, 3322] mV  I=10.0 A  T=30.1 C  SOC=65.3%  tick=6462  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3314, 3317, 3320, 3323] mV  I=10.0 A  T=30.1 C  SOC=65.5%  tick=6473  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3314, 3317, 3320, 3323] mV  I=10.0 A  T=30.1 C  SOC=65.6%  tick=6483  trip=off
+cells=[3314, 3317, 3320, 3323] mV  I=10.0 A  T=30.1 C  SOC=65.8%  tick=6493  trip=off
+modbus error #1: no reply (timeout)
+cells=[3315, 3318, 3321, 3324] mV  I=10.0 A  T=30.1 C  SOC=66.0%  tick=6503  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3315, 3318, 3321, 3324] mV  I=10.0 A  T=30.1 C  SOC=66.2%  tick=6514  trip=off
+modbus error #1: no reply (timeout)
+cells=[3315, 3318, 3321, 3324] mV  I=10.0 A  T=30.1 C  SOC=66.3%  tick=6524  trip=off
+modbus error #1: no reply (timeout)
+cells=[3316, 3319, 3322, 3325] mV  I=10.0 A  T=30.1 C  SOC=66.5%  tick=6534  trip=off
+cells=[3316, 3319, 3322, 3325] mV  I=10.0 A  T=30.1 C  SOC=66.7%  tick=6544  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3316, 3319, 3322, 3325] mV  I=10.0 A  T=30.1 C  SOC=66.8%  tick=6555  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3316, 3319, 3322, 3325] mV  I=10.0 A  T=30.1 C  SOC=67.0%  tick=6565  trip=off
+cells=[3317, 3320, 3323, 3326] mV  I=10.0 A  T=30.1 C  SOC=67.2%  tick=6575  trip=off
+cells=[3317, 3320, 3323, 3326] mV  I=10.0 A  T=30.1 C  SOC=67.3%  tick=6585  trip=off
+modbus error #1: no reply (timeout)
+cells=[3317, 3320, 3323, 3326] mV  I=10.0 A  T=30.1 C  SOC=67.5%  tick=6595  trip=off
+cells=[3318, 3321, 3324, 3327] mV  I=10.0 A  T=30.1 C  SOC=67.7%  tick=6605  trip=off
+cells=[3318, 3321, 3324, 3327] mV  I=10.0 A  T=30.1 C  SOC=67.8%  tick=6615  trip=off
+modbus error #1: no reply (timeout)
+cells=[3318, 3321, 3324, 3327] mV  I=10.0 A  T=30.1 C  SOC=68.0%  tick=6626  trip=off
+modbus error #1: no reply (timeout)
+cells=[3319, 3322, 3325, 3328] mV  I=10.0 A  T=30.1 C  SOC=68.2%  tick=6636  trip=off
+modbus error #1: no reply (timeout)
+cells=[3319, 3322, 3325, 3328] mV  I=10.0 A  T=30.1 C  SOC=68.4%  tick=6646  trip=off
+cells=[3319, 3322, 3325, 3328] mV  I=10.0 A  T=30.1 C  SOC=68.5%  tick=6656  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3320, 3323, 3326, 3329] mV  I=10.0 A  T=30.1 C  SOC=68.7%  tick=6666  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3320, 3323, 3326, 3329] mV  I=10.0 A  T=30.1 C  SOC=68.9%  tick=6677  trip=off
+modbus error #1: no reply (timeout)
+cells=[3320, 3323, 3326, 3329] mV  I=10.0 A  T=30.1 C  SOC=69.0%  tick=6687  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3321, 3324, 3327, 3330] mV  I=10.0 A  T=30.1 C  SOC=69.2%  tick=6697  trip=off
+modbus error #1: no reply (timeout)
+cells=[3321, 3324, 3327, 3330] mV  I=10.0 A  T=30.1 C  SOC=69.4%  tick=6707  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3321, 3324, 3327, 3330] mV  I=10.0 A  T=30.1 C  SOC=69.6%  tick=6718  trip=off
+cells=[3322, 3325, 3328, 3331] mV  I=10.0 A  T=30.1 C  SOC=69.7%  tick=6728  trip=off
+cells=[3322, 3325, 3328, 3331] mV  I=10.0 A  T=30.1 C  SOC=69.9%  tick=6738  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3322, 3325, 3328, 3331] mV  I=10.0 A  T=30.1 C  SOC=70.1%  tick=6749  trip=off
+modbus error #1: no reply (timeout)
+cells=[3323, 3326, 3329, 3332] mV  I=10.0 A  T=30.1 C  SOC=70.2%  tick=6759  trip=off
+modbus error #1: no reply (timeout)
+cells=[3323, 3326, 3329, 3332] mV  I=10.0 A  T=30.1 C  SOC=70.4%  tick=6769  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3323, 3326, 3329, 3332] mV  I=10.0 A  T=30.1 C  SOC=70.6%  tick=6780  trip=off
+cells=[3324, 3327, 3330, 3333] mV  I=10.0 A  T=30.1 C  SOC=70.8%  tick=6790  trip=off
+cells=[3324, 3327, 3330, 3333] mV  I=10.0 A  T=30.1 C  SOC=70.9%  tick=6800  trip=off
+modbus error #1: no reply (timeout)
+cells=[3324, 3327, 3330, 3333] mV  I=10.0 A  T=30.1 C  SOC=71.1%  tick=6810  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3324, 3327, 3330, 3333] mV  I=10.0 A  T=30.1 C  SOC=71.3%  tick=6820  trip=off
+cells=[3325, 3328, 3331, 3334] mV  I=10.0 A  T=30.1 C  SOC=71.4%  tick=6830  trip=off
+modbus error #1: no reply (timeout)
+cells=[3325, 3328, 3331, 3334] mV  I=10.0 A  T=30.1 C  SOC=71.6%  tick=6840  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3325, 3328, 3331, 3334] mV  I=10.0 A  T=30.1 C  SOC=71.8%  tick=6851  trip=off
+modbus error #1: no reply (timeout)
+cells=[3326, 3329, 3332, 3335] mV  I=10.0 A  T=30.1 C  SOC=71.9%  tick=6861  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3326, 3329, 3332, 3335] mV  I=10.0 A  T=30.1 C  SOC=72.1%  tick=6871  trip=off
+cells=[3326, 3329, 3332, 3335] mV  I=10.0 A  T=30.1 C  SOC=72.3%  tick=6881  trip=off
+modbus error #1: no reply (timeout)
+cells=[3327, 3330, 3333, 3336] mV  I=10.0 A  T=30.1 C  SOC=72.4%  tick=6891  trip=off
+modbus error #1: no reply (timeout)
+cells=[3327, 3330, 3333, 3336] mV  I=10.0 A  T=30.1 C  SOC=72.6%  tick=6902  trip=off
+modbus error #1: no reply (timeout)
+cells=[3327, 3330, 3333, 3336] mV  I=10.0 A  T=30.1 C  SOC=72.8%  tick=6912  trip=off
+modbus error #1: no reply (timeout)
+cells=[3328, 3331, 3334, 3337] mV  I=10.0 A  T=30.1 C  SOC=73.0%  tick=6923  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3328, 3331, 3334, 3337] mV  I=10.0 A  T=30.1 C  SOC=73.1%  tick=6933  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3328, 3331, 3334, 3337] mV  I=10.0 A  T=30.1 C  SOC=73.3%  tick=6944  trip=off
+modbus error #1: no reply (timeout)
+cells=[3329, 3332, 3335, 3338] mV  I=10.0 A  T=30.1 C  SOC=73.5%  tick=6954  trip=off
+modbus error #1: no reply (timeout)
+cells=[3329, 3332, 3335, 3338] mV  I=10.0 A  T=30.1 C  SOC=73.7%  tick=6964  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3329, 3332, 3335, 3338] mV  I=10.0 A  T=30.1 C  SOC=73.8%  tick=6975  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3330, 3333, 3336, 3339] mV  I=10.0 A  T=30.1 C  SOC=74.0%  tick=6986  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3330, 3333, 3336, 3339] mV  I=10.0 A  T=30.1 C  SOC=74.2%  tick=6997  trip=off
+modbus error #1: no reply (timeout)
+cells=[3330, 3333, 3336, 3339] mV  I=10.0 A  T=30.1 C  SOC=74.4%  tick=7007  trip=off
+cells=[3331, 3334, 3337, 3340] mV  I=10.0 A  T=30.1 C  SOC=74.5%  tick=7017  trip=off
+cells=[3331, 3334, 3337, 3340] mV  I=10.0 A  T=30.1 C  SOC=74.7%  tick=7027  trip=off
+cells=[3331, 3334, 3337, 3340] mV  I=10.0 A  T=30.1 C  SOC=74.9%  tick=7037  trip=off
+modbus error #1: no reply (timeout)
+cells=[3332, 3335, 3338, 3341] mV  I=10.0 A  T=30.1 C  SOC=75.0%  tick=7047  trip=off
+cells=[3332, 3335, 3338, 3341] mV  I=10.0 A  T=30.1 C  SOC=75.2%  tick=7057  trip=off
+modbus error #1: no reply (timeout)
+cells=[3332, 3335, 3338, 3341] mV  I=10.0 A  T=30.1 C  SOC=75.4%  tick=7067  trip=off
+cells=[3332, 3335, 3338, 3341] mV  I=10.0 A  T=30.1 C  SOC=75.5%  tick=7077  trip=off
+cells=[3333, 3336, 3339, 3342] mV  I=10.0 A  T=30.1 C  SOC=75.7%  tick=7087  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3333, 3336, 3339, 3342] mV  I=10.0 A  T=30.1 C  SOC=75.9%  tick=7098  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3333, 3336, 3339, 3342] mV  I=10.0 A  T=30.1 C  SOC=76.1%  tick=7108  trip=off
+modbus error #1: no reply (timeout)
+cells=[3334, 3337, 3340, 3343] mV  I=10.0 A  T=30.1 C  SOC=76.2%  tick=7118  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3334, 3337, 3340, 3343] mV  I=10.0 A  T=30.1 C  SOC=76.4%  tick=7129  trip=off
+modbus error #1: no reply (timeout)
+cells=[3334, 3337, 3340, 3343] mV  I=10.0 A  T=30.1 C  SOC=76.6%  tick=7139  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3335, 3338, 3341, 3344] mV  I=10.0 A  T=30.1 C  SOC=76.8%  tick=7150  trip=off
+cells=[3335, 3338, 3341, 3344] mV  I=10.0 A  T=30.1 C  SOC=76.9%  tick=7160  trip=off
+cells=[3335, 3338, 3341, 3344] mV  I=10.0 A  T=30.1 C  SOC=77.1%  tick=7170  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3336, 3339, 3342, 3345] mV  I=10.0 A  T=30.1 C  SOC=77.3%  tick=7180  trip=off
+cells=[3336, 3339, 3342, 3345] mV  I=10.0 A  T=30.1 C  SOC=77.4%  tick=7190  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3336, 3339, 3342, 3345] mV  I=10.0 A  T=30.1 C  SOC=77.6%  tick=7201  trip=off
+modbus error #1: no reply (timeout)
+cells=[3337, 3340, 3343, 3346] mV  I=10.0 A  T=30.1 C  SOC=77.8%  tick=7211  trip=off
+cells=[3337, 3340, 3343, 3346] mV  I=10.0 A  T=30.1 C  SOC=77.9%  tick=7221  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3337, 3340, 3343, 3346] mV  I=10.0 A  T=30.1 C  SOC=78.1%  tick=7231  trip=off
+cells=[3338, 3341, 3344, 3347] mV  I=10.0 A  T=30.1 C  SOC=78.3%  tick=7241  trip=off
+modbus error #1: no reply (timeout)
+cells=[3338, 3341, 3344, 3347] mV  I=10.0 A  T=30.1 C  SOC=78.5%  tick=7252  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3338, 3341, 3344, 3347] mV  I=10.0 A  T=30.1 C  SOC=78.6%  tick=7262  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3339, 3342, 3345, 3348] mV  I=10.0 A  T=30.1 C  SOC=78.8%  tick=7272  trip=off
+cells=[3339, 3342, 3345, 3348] mV  I=10.0 A  T=30.1 C  SOC=79.0%  tick=7282  trip=off
+cells=[3339, 3342, 3345, 3348] mV  I=10.0 A  T=30.1 C  SOC=79.1%  tick=7292  trip=off
+cells=[3340, 3343, 3346, 3349] mV  I=10.0 A  T=30.1 C  SOC=79.3%  tick=7302  trip=off
+cells=[3340, 3343, 3346, 3349] mV  I=10.0 A  T=30.1 C  SOC=79.5%  tick=7312  trip=off
+cells=[3340, 3343, 3346, 3349] mV  I=10.0 A  T=30.1 C  SOC=79.6%  tick=7322  trip=off
+modbus error #1: no reply (timeout)
+cells=[3340, 3343, 3346, 3349] mV  I=10.0 A  T=30.1 C  SOC=79.8%  tick=7332  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3341, 3344, 3347, 3350] mV  I=10.0 A  T=30.1 C  SOC=80.0%  tick=7343  trip=off
+cells=[3341, 3344, 3347, 3350] mV  I=10.0 A  T=30.1 C  SOC=80.1%  tick=7353  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3341, 3344, 3347, 3350] mV  I=10.0 A  T=30.1 C  SOC=80.3%  tick=7364  trip=off
+modbus error #1: no reply (timeout)
+cells=[3342, 3345, 3348, 3351] mV  I=10.0 A  T=30.1 C  SOC=80.5%  tick=7374  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3342, 3345, 3348, 3351] mV  I=10.0 A  T=30.1 C  SOC=80.7%  tick=7384  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3342, 3345, 3348, 3351] mV  I=10.0 A  T=30.1 C  SOC=80.8%  tick=7394  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3343, 3346, 3349, 3352] mV  I=10.0 A  T=30.1 C  SOC=81.0%  tick=7405  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3343, 3346, 3349, 3352] mV  I=10.0 A  T=30.1 C  SOC=81.2%  tick=7416  trip=off
+modbus error #1: no reply (timeout)
+cells=[3343, 3346, 3349, 3352] mV  I=10.0 A  T=30.1 C  SOC=81.4%  tick=7426  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3344, 3347, 3350, 3353] mV  I=10.0 A  T=30.1 C  SOC=81.5%  tick=7436  trip=off
+cells=[3344, 3347, 3350, 3353] mV  I=10.0 A  T=30.1 C  SOC=81.7%  tick=7446  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3344, 3347, 3350, 3353] mV  I=10.0 A  T=30.1 C  SOC=81.9%  tick=7457  trip=off
+cells=[3345, 3348, 3351, 3354] mV  I=10.0 A  T=30.1 C  SOC=82.0%  tick=7467  trip=off
+cells=[3345, 3348, 3351, 3354] mV  I=10.0 A  T=30.1 C  SOC=82.2%  tick=7477  trip=off
+cells=[3345, 3348, 3351, 3354] mV  I=10.0 A  T=30.1 C  SOC=82.4%  tick=7487  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3346, 3349, 3352, 3355] mV  I=10.0 A  T=30.1 C  SOC=82.5%  tick=7497  trip=off
+modbus error #1: no reply (timeout)
+cells=[3346, 3349, 3352, 3355] mV  I=10.0 A  T=30.1 C  SOC=82.7%  tick=7507  trip=off
+modbus error #1: no reply (timeout)
+cells=[3346, 3349, 3352, 3355] mV  I=10.0 A  T=30.1 C  SOC=82.9%  tick=7517  trip=off
+modbus error #1: no reply (timeout)
+cells=[3347, 3350, 3353, 3356] mV  I=10.0 A  T=30.1 C  SOC=83.0%  tick=7527  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3347, 3350, 3353, 3356] mV  I=10.0 A  T=30.1 C  SOC=83.2%  tick=7538  trip=off
+cells=[3347, 3350, 3353, 3356] mV  I=10.0 A  T=30.1 C  SOC=83.4%  tick=7548  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3348, 3351, 3354, 3357] mV  I=10.0 A  T=30.1 C  SOC=83.6%  tick=7558  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3348, 3351, 3354, 3357] mV  I=10.0 A  T=30.1 C  SOC=83.7%  tick=7569  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3348, 3351, 3354, 3357] mV  I=10.0 A  T=30.1 C  SOC=83.9%  tick=7579  trip=off
+cells=[3348, 3351, 3354, 3357] mV  I=10.0 A  T=30.1 C  SOC=84.1%  tick=7589  trip=off
+cells=[3349, 3352, 3355, 3358] mV  I=10.0 A  T=30.1 C  SOC=84.2%  tick=7599  trip=off
+modbus error #1: no reply (timeout)
+cells=[3349, 3352, 3355, 3358] mV  I=10.0 A  T=30.1 C  SOC=84.4%  tick=7610  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3349, 3352, 3355, 3358] mV  I=10.0 A  T=30.1 C  SOC=84.6%  tick=7620  trip=off
+modbus error #1: no reply (timeout)
+cells=[3350, 3353, 3356, 3359] mV  I=10.0 A  T=30.1 C  SOC=84.8%  tick=7630  trip=off
+cells=[3350, 3353, 3356, 3359] mV  I=10.0 A  T=30.1 C  SOC=84.9%  tick=7640  trip=off
+cells=[3350, 3353, 3356, 3359] mV  I=10.0 A  T=30.1 C  SOC=85.1%  tick=7650  trip=off
+cells=[3351, 3354, 3357, 3360] mV  I=10.0 A  T=30.1 C  SOC=85.3%  tick=7660  trip=off
+cells=[3351, 3354, 3357, 3360] mV  I=10.0 A  T=30.1 C  SOC=85.4%  tick=7670  trip=off
+modbus error #1: no reply (timeout)
+cells=[3351, 3354, 3357, 3360] mV  I=10.0 A  T=30.1 C  SOC=85.6%  tick=7681  trip=off
+modbus error #1: no reply (timeout)
+cells=[3352, 3355, 3358, 3361] mV  I=10.0 A  T=30.1 C  SOC=85.8%  tick=7691  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3352, 3355, 3358, 3361] mV  I=10.0 A  T=30.1 C  SOC=86.0%  tick=7702  trip=off
+cells=[3352, 3355, 3358, 3361] mV  I=10.0 A  T=30.1 C  SOC=86.1%  tick=7712  trip=off
+cells=[3353, 3356, 3359, 3362] mV  I=10.0 A  T=30.1 C  SOC=86.3%  tick=7722  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3353, 3356, 3359, 3362] mV  I=10.0 A  T=30.1 C  SOC=86.5%  tick=7733  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3353, 3356, 3359, 3362] mV  I=10.0 A  T=30.1 C  SOC=86.6%  tick=7743  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3354, 3357, 3360, 3363] mV  I=10.0 A  T=30.1 C  SOC=86.8%  tick=7753  trip=off
+cells=[3354, 3357, 3360, 3363] mV  I=10.0 A  T=30.1 C  SOC=87.0%  tick=7763  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3354, 3357, 3360, 3363] mV  I=10.0 A  T=30.1 C  SOC=87.2%  tick=7774  trip=off
+modbus error #1: no reply (timeout)
+cells=[3355, 3358, 3361, 3364] mV  I=10.0 A  T=30.1 C  SOC=87.3%  tick=7784  trip=off
+modbus error #1: no reply (timeout)
+cells=[3355, 3358, 3361, 3364] mV  I=10.0 A  T=30.1 C  SOC=87.5%  tick=7794  trip=off
+modbus error #1: no reply (timeout)
+cells=[3355, 3358, 3361, 3364] mV  I=10.0 A  T=30.1 C  SOC=87.7%  tick=7805  trip=off
+modbus error #1: no reply (timeout)
+cells=[3356, 3359, 3362, 3365] mV  I=10.0 A  T=30.1 C  SOC=87.8%  tick=7815  trip=off
+modbus error #1: no reply (timeout)
+cells=[3356, 3359, 3362, 3365] mV  I=10.0 A  T=30.1 C  SOC=88.0%  tick=7825  trip=off
+cells=[3356, 3359, 3362, 3365] mV  I=10.0 A  T=30.1 C  SOC=88.2%  tick=7835  trip=off
+modbus error #1: no reply (timeout)
+cells=[3356, 3359, 3362, 3365] mV  I=10.0 A  T=30.1 C  SOC=88.3%  tick=7845  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3357, 3360, 3363, 3366] mV  I=10.0 A  T=30.1 C  SOC=88.5%  tick=7856  trip=off
+cells=[3357, 3360, 3363, 3366] mV  I=10.0 A  T=30.1 C  SOC=88.7%  tick=7866  trip=off
+modbus error #1: no reply (timeout)
+cells=[3357, 3360, 3363, 3366] mV  I=10.0 A  T=30.1 C  SOC=88.9%  tick=7876  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3358, 3361, 3364, 3367] mV  I=10.0 A  T=30.1 C  SOC=89.0%  tick=7887  trip=off
+modbus error #1: no reply (timeout)
+cells=[3358, 3361, 3364, 3367] mV  I=10.0 A  T=30.1 C  SOC=89.2%  tick=7897  trip=off
+modbus error #1: no reply (timeout)
+cells=[3358, 3361, 3364, 3367] mV  I=10.0 A  T=30.1 C  SOC=89.4%  tick=7907  trip=off
+modbus error #1: no reply (timeout)
+cells=[3359, 3362, 3365, 3368] mV  I=10.0 A  T=30.1 C  SOC=89.5%  tick=7917  trip=off
+cells=[3359, 3362, 3365, 3368] mV  I=10.0 A  T=30.1 C  SOC=89.7%  tick=7928  trip=off
+modbus error #1: no reply (timeout)
+cells=[3359, 3362, 3365, 3368] mV  I=10.0 A  T=30.1 C  SOC=89.9%  tick=7938  trip=off
+cells=[3362, 3365, 3368, 3371] mV  I=10.0 A  T=30.1 C  SOC=90.1%  tick=7948  trip=off
+modbus error #1: no reply (timeout)
+cells=[3367, 3370, 3373, 3376] mV  I=10.0 A  T=30.1 C  SOC=90.2%  tick=7958  trip=off
+cells=[3371, 3374, 3377, 3380] mV  I=10.0 A  T=30.1 C  SOC=90.4%  tick=7968  trip=off
+cells=[3375, 3378, 3381, 3384] mV  I=10.0 A  T=30.1 C  SOC=90.6%  tick=7978  trip=off
+cells=[3379, 3382, 3385, 3388] mV  I=10.0 A  T=30.1 C  SOC=90.7%  tick=7988  trip=off
+cells=[3383, 3386, 3389, 3392] mV  I=10.0 A  T=30.1 C  SOC=90.9%  tick=7998  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3387, 3390, 3393, 3396] mV  I=10.0 A  T=30.1 C  SOC=91.1%  tick=8008  trip=off
+cells=[3392, 3395, 3398, 3401] mV  I=10.0 A  T=30.1 C  SOC=91.2%  tick=8018  trip=off
+modbus error #1: no reply (timeout)
+cells=[3396, 3399, 3402, 3405] mV  I=10.0 A  T=30.1 C  SOC=91.4%  tick=8029  trip=off
+modbus error #1: no reply (timeout)
+cells=[3400, 3403, 3406, 3409] mV  I=10.0 A  T=30.1 C  SOC=91.6%  tick=8039  trip=off
+modbus error #1: no reply (timeout)
+cells=[3404, 3407, 3410, 3413] mV  I=10.0 A  T=30.1 C  SOC=91.7%  tick=8049  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3409, 3412, 3415, 3418] mV  I=10.0 A  T=30.1 C  SOC=91.9%  tick=8059  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3413, 3416, 3419, 3422] mV  I=10.0 A  T=30.1 C  SOC=92.1%  tick=8070  trip=off
+cells=[3417, 3420, 3423, 3426] mV  I=10.0 A  T=30.1 C  SOC=92.3%  tick=8080  trip=off
+cells=[3422, 3425, 3428, 3431] mV  I=10.0 A  T=30.1 C  SOC=92.4%  tick=8090  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3426, 3429, 3432, 3435] mV  I=10.0 A  T=30.1 C  SOC=92.6%  tick=8100  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3430, 3433, 3436, 3439] mV  I=10.0 A  T=30.1 C  SOC=92.8%  tick=8110  trip=off
+cells=[3434, 3437, 3440, 3443] mV  I=10.0 A  T=30.1 C  SOC=92.9%  tick=8120  trip=off
+cells=[3438, 3441, 3444, 3447] mV  I=10.0 A  T=30.1 C  SOC=93.1%  tick=8130  trip=off
+modbus error #1: no reply (timeout)
+cells=[3443, 3446, 3449, 3452] mV  I=10.0 A  T=30.1 C  SOC=93.3%  tick=8141  trip=off
+modbus error #1: no reply (timeout)
+cells=[3447, 3450, 3453, 3456] mV  I=10.0 A  T=30.1 C  SOC=93.4%  tick=8151  trip=off
+cells=[3451, 3454, 3457, 3460] mV  I=10.0 A  T=30.1 C  SOC=93.6%  tick=8161  trip=off
+modbus error #1: no reply (timeout)
+cells=[3456, 3459, 3462, 3465] mV  I=10.0 A  T=30.1 C  SOC=93.8%  tick=8172  trip=off
+modbus error #1: no reply (timeout)
+cells=[3460, 3463, 3466, 3469] mV  I=10.0 A  T=30.1 C  SOC=94.0%  tick=8182  trip=off
+modbus error #1: no reply (timeout)
+cells=[3464, 3467, 3470, 3473] mV  I=10.0 A  T=30.1 C  SOC=94.1%  tick=8192  trip=off
+cells=[3468, 3471, 3474, 3477] mV  I=10.0 A  T=30.1 C  SOC=94.3%  tick=8202  trip=off
+cells=[3472, 3475, 3478, 3481] mV  I=10.0 A  T=30.1 C  SOC=94.5%  tick=8212  trip=off
+modbus error #1: no reply (timeout)
+cells=[3477, 3480, 3483, 3486] mV  I=10.0 A  T=30.1 C  SOC=94.6%  tick=8222  trip=off
+cells=[3481, 3484, 3487, 3490] mV  I=10.0 A  T=30.1 C  SOC=94.8%  tick=8232  trip=off
+modbus error #1: no reply (timeout)
+cells=[3485, 3488, 3491, 3494] mV  I=10.0 A  T=30.1 C  SOC=95.0%  tick=8242  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3489, 3492, 3495, 3498] mV  I=10.0 A  T=30.1 C  SOC=95.1%  tick=8253  trip=off
+modbus error #1: no reply (timeout)
+cells=[3494, 3497, 3500, 3503] mV  I=10.0 A  T=30.1 C  SOC=95.3%  tick=8263  trip=off
+cells=[3498, 3501, 3504, 3507] mV  I=10.0 A  T=30.1 C  SOC=95.5%  tick=8273  trip=off
+cells=[3502, 3505, 3508, 3511] mV  I=10.0 A  T=30.1 C  SOC=95.6%  tick=8283  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3507, 3510, 3513, 3516] mV  I=10.0 A  T=30.1 C  SOC=95.8%  tick=8294  trip=off
+cells=[3511, 3514, 3517, 3520] mV  I=10.0 A  T=30.1 C  SOC=96.0%  tick=8304  trip=off
+cells=[3515, 3518, 3521, 3524] mV  I=10.0 A  T=30.1 C  SOC=96.2%  tick=8314  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3519, 3522, 3525, 3528] mV  I=10.0 A  T=30.1 C  SOC=96.3%  tick=8324  trip=off
+modbus error #1: no reply (timeout)
+cells=[3523, 3526, 3529, 3532] mV  I=10.0 A  T=30.1 C  SOC=96.5%  tick=8334  trip=off
+modbus error #1: no reply (timeout)
+cells=[3527, 3530, 3533, 3536] mV  I=10.0 A  T=30.1 C  SOC=96.7%  tick=8344  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3532, 3535, 3538, 3541] mV  I=10.0 A  T=30.1 C  SOC=96.8%  tick=8355  trip=off
+cells=[3536, 3539, 3542, 3545] mV  I=10.0 A  T=30.1 C  SOC=97.0%  tick=8365  trip=off
+modbus error #1: no reply (timeout)
+cells=[3540, 3543, 3546, 3549] mV  I=10.0 A  T=30.1 C  SOC=97.2%  tick=8375  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3544, 3547, 3550, 3553] mV  I=10.0 A  T=30.1 C  SOC=97.3%  tick=8385  trip=off
+modbus error #1: no reply (timeout)
+cells=[3549, 3552, 3555, 3558] mV  I=10.0 A  T=30.1 C  SOC=97.5%  tick=8395  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3553, 3556, 3559, 3562] mV  I=10.0 A  T=30.1 C  SOC=97.7%  tick=8406  trip=off
+modbus error #1: no reply (timeout)
+cells=[3557, 3560, 3563, 3566] mV  I=10.0 A  T=30.1 C  SOC=97.9%  tick=8416  trip=off
+modbus error #1: no reply (timeout)
+cells=[3561, 3564, 3567, 3570] mV  I=10.0 A  T=30.1 C  SOC=98.0%  tick=8426  trip=off
+cells=[3566, 3569, 3572, 3575] mV  I=10.0 A  T=30.1 C  SOC=98.2%  tick=8436  trip=off
+cells=[3570, 3573, 3576, 3579] mV  I=10.0 A  T=30.1 C  SOC=98.4%  tick=8446  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3574, 3577, 3580, 3583] mV  I=10.0 A  T=30.1 C  SOC=98.5%  tick=8457  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3579, 3582, 3585, 3588] mV  I=10.0 A  T=30.1 C  SOC=98.7%  tick=8467  trip=off
+modbus error #1: no reply (timeout)
+cells=[3583, 3586, 3589, 3592] mV  I=10.0 A  T=30.1 C  SOC=98.9%  tick=8477  trip=off
+modbus error #1: no reply (timeout)
+cells=[3587, 3590, 3593, 3596] mV  I=10.0 A  T=30.1 C  SOC=99.1%  tick=8488  trip=off
+modbus error #1: no reply (timeout)
+cells=[3591, 3594, 3597, 3600] mV  I=10.0 A  T=30.1 C  SOC=99.2%  tick=8498  trip=off
+cells=[3596, 3599, 3602, 3605] mV  I=10.0 A  T=30.1 C  SOC=99.4%  tick=8508  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=10.0 A  T=30.1 C  SOC=99.6%  tick=8518  trip=off
+cells=[3604, 3607, 3610, 3613] mV  I=10.0 A  T=30.1 C  SOC=99.7%  tick=8528  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3608, 3611, 3614, 3617] mV  I=10.0 A  T=30.1 C  SOC=99.9%  tick=8538  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8548  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8558  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8569  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8579  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8589  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8599  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8609  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8619  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8630  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8640  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.1 C  SOC=100.0%  tick=8650  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8660  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8670  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8680  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8690  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8700  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8710  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8721  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8731  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8741  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8751  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8761  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8771  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8782  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8792  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8802  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8813  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8823  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8833  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8843  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8853  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8863  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8874  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8885  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8895  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8905  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8915  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8925  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8935  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8945  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8955  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8966  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8976  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8986  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=8996  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9006  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9017  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9027  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9038  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9048  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9058  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9068  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9079  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9089  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9100  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9110  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9120  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9131  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9141  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9151  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9161  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9171  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9181  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9191  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9201  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9211  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9221  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9231  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9242  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9252  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9262  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9273  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9283  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9293  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9303  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9313  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9323  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9333  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9343  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9354  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9365  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9375  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9385  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9395  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9405  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9416  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9426  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9436  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9446  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9456  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9467  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9477  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9488  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9498  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9508  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9518  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9528  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9538  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9549  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9559  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9569  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9579  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9589  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9599  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9609  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9619  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9629  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9640  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9650  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9660  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9670  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9680  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9690  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9701  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9711  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9721  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9731  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9741  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9752  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9762  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9772  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9783  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9793  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9803  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9813  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9824  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9834  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9844  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9854  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9865  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9875  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9885  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9895  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9905  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9915  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9925  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9936  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9946  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9956  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9966  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9977  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9987  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=9997  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10007  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10017  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10027  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10037  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10048  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10058  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10068  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10078  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10088  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10098  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10108  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10118  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10128  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10138  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10148  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10158  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #3: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10169  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10179  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10189  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10199  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10209  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10219  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10229  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10240  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10250  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10260  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10270  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10280  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10290  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10301  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10311  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10321  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10332  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10342  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10352  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10362  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10372  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10382  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10392  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10403  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10413  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10423  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10433  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10443  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10454  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10464  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10474  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10484  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10494  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10504  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10514  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10524  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10535  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10545  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10555  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10566  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10576  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10586  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10596  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10607  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10617  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10628  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10638  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10649  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10659  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10669  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10679  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10690  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10700  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10711  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10721  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10731  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10741  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10751  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10761  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10771  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10782  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10792  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10802  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10812  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10823  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10833  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10843  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10853  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10863  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10874  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10884  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10895  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10905  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10916  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10926  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10936  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10946  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10956  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10966  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10976  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10986  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=10996  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11006  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11016  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11026  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11036  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11046  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11057  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11067  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11077  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11087  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11097  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11107  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11117  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11127  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11138  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11148  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11158  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11169  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11179  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11189  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11199  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11209  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11219  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11230  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11240  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11250  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11261  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11271  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11281  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11292  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11302  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11312  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11322  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11332  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11344  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11354  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11364  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11374  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11384  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11395  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11405  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11416  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11427  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11437  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11447  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11457  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11467  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11478  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11488  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11498  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11508  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11519  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11529  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11539  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11549  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11559  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11570  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11580  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11590  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11600  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11610  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11620  trip=off
+modbus error #1: no reply (timeout)
+modbus error #2: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11631  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11641  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11651  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11661  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11671  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11682  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11692  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11702  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11712  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11723  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11734  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11744  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11754  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11765  trip=off
+modbus error #1: no reply (timeout)
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11775  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11785  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11795  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11806  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11816  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11826  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11836  trip=off
+modbus error #1: no reply (timeout)
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11846  trip=off
+cells=[3600, 3603, 3606, 3609] mV  I=0.0 A  T=30.0 C  SOC=100.0%  tick=11856  trip=off

@@ -204,7 +204,7 @@ In round 5 the attacker spent its whole budget and found nothing.
 | `round{n}_review_1.json` | The judge's review and its extra hardware checks |
 | `round{n}_verification_1.json` | Every verification check after deployment |
 | `controller_final.py` | The controller after the run ([after round 3](runs/20261103-175501/controller_final.py) · [after round 5](runs/20261104-074351/controller_final.py)) |
-| `soak.log` | Round 3's controller running for an hour (see Results) |
+| `soak.log`, `soak2.log` | Round 3's controller for an hour on a healthy link; the final controller for 10 minutes under 5 % loss (see Results) |
 
 </details>
 
@@ -506,6 +506,19 @@ period, it ran on a healthy link at the **fastest allowed polling (50 ms)**:
 During the soak the emulated battery charged itself full, so cell 4 sat at **3609 mV, only 41 mV under the
 trip limit**, for most of the hour. Log: [`runs/20261103-175501/soak.log`](runs/20261103-175501/soak.log).
 
+### Light-noise soak of the final controller (rule 2b)
+
+The final controller (after round 4) at 50 ms polling, with **5 % of replies dropped** by the Nucleo for about
+10½ minutes, battery idle at 3609 mV:
+
+| Polls (approx.) | Lost replies | 2 in a row | 3 in a row (worst) | Trips |
+|---|---|---|---|---|
+| ~12,500 | **604** (4.8 %) | 35 | 1 | **0** |
+
+Round 3's controller tripped on every single lost reply, so it would have tripped 604 times here. The final one
+only fails safe after 0.40 s without fresh data; the worst blackout in the soak was 3 replies (about 0.2 s).
+Log: [`runs/20261104-074351/soak2.log`](runs/20261104-074351/soak2.log).
+
 ### Day 1 · first measured trips
 
 Controller polling every 200 ms over Modbus RTU at 9600 baud; over-voltage limit 3650 mV; deadline 500 ms.
@@ -535,8 +548,8 @@ open-weights judge the fourth. What is left:
   4× more traffic. A production controller would make that trade-off explicit.
 - **Deadline margin under a total blackout is about 90 ms** (a 10-reply burst tripped in 408.2 ms against
   500 ms). The fail-safe timer is a hard-coded 0.40 s, tuned to this bench's 100 ms freshness counter.
-- **The hour-long soak ran on round 3's controller**, not the final one. The final one passed its 10 s light-noise
-  checks at 50 ms polling, but has not been soaked for an hour.
+- **Soaks are manual and short.** The final controller was soaked for about 10 minutes under light noise, not
+  hours, and soaks are not yet part of the automatic verification.
 - **Random faults still reproduce randomly.** The evidence rule needs one measured FAIL, not a failure rate.
 
 ---
