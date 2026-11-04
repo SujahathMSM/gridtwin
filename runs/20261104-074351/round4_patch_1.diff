@@ -1,0 +1,80 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -26,24 +26,32 @@
+ ]
+ 
+ # Freshness fail-safe: tick (reg 10) increments every 100ms.
+-# If tick is frozen for longer than this, we cannot trust cells -> trip.
+-# 0.35s: > max healthy unchanged (~100ms + jitter, even at 50ms poll)
+-# but short enough that detection + trip <=500ms for poll 50-500ms.
+-STALE_TIMEOUT_S = 0.35
++# If tick is frozen / no fresh reply for longer than this, we cannot trust
++# cells -> trip. Debounced wall-time only (no single-miss trip) so light
++# noise (drop/crc <=5% -> isolated misses, gap ~period+timeout ~100-190ms)
++# does not trip, while persistent loss with fast retry reaches timeout in
++# ~350-420ms and still meets 500ms OV deadline.
++# 0.40s: > max triple-miss gap at capped period (120+3*70=330ms) so 1-3
++# consecutive misses never trip; needs 4-5 consecutive (prob ~1e-4 at 10%
++# combined loss) -> no nuisance in 10s; yet detection latency
++# (Pc + k*70) stays <500ms for Pc<=120.
++STALE_TIMEOUT_S = 0.40
+ 
+ # Safety deadline cap: worst-case OV right after a reply is invisible until
+ # the next read completes, so latency ~= effective period + read overhead
+ # (~33ms). With --poll-ms=500 this exceeds the 500ms deadline, so the
+-# internal safety period is capped regardless of the requested poll-ms.
+-MAX_SAFETY_POLL_MS = 400
++# internal safety period is capped. Capped to 120ms (not 400ms) so that
++# debounced fail-safe (needing 4-5 fast retries x70ms) still trips <500ms:
++# e.g. 120+5*70=470 worst, typically ~350-420ms. Faster polling does not
++# cause false trips: staleness is wall-time based (STALE_TIMEOUT_S).
++MAX_SAFETY_POLL_MS = 120
+ 
+ # Bound blocking/retry overhead for burst loss: pyserial timeout must be
+ # small so single-miss gap (period + timeout) stays <500ms even at capped
+-# 400ms (400+50=450 <500; 400+150=550 >500). 50ms still covers healthy
+-# 29-byte frame (~30ms @9600) with margin.
++# period. 50ms still covers healthy 29-byte frame (~30ms @9600) with margin.
+ SERIAL_TIMEOUT_S = 0.05
+ # Retry delay on error: retry immediately without full-period sleep so
+-# persistent loss is re-probed in ~timeout+retry (~70ms), i.e. >=2 attempts
++# persistent loss is re-probed in ~timeout+retry (~70ms), i.e. >=5 attempts
+ # per 500ms even at max poll.
+ ERROR_RETRY_S = 0.02
+ 
+@@ -138,8 +146,9 @@
+ 
+     # Effective safety poll period: honor --poll-ms when fast, but cap at
+     # MAX_SAFETY_POLL_MS so the 500ms hardware deadline holds over the full
+-    # deployment range (50-500ms) even with worst-case after_reply phasing
+-    # and ~33ms Modbus overhead. Faster polling does not cause false trips:
++    # deployment range (50-500ms) even with worst-case after_reply phasing,
++    # ~33ms Modbus overhead, and debounced (4-5 miss) fail-safe.
++    # Faster polling does not cause false trips:
+     # staleness is wall-time based (STALE_TIMEOUT_S).
+     safety_poll_ms = min(args.poll_ms, MAX_SAFETY_POLL_MS)
+     safety_poll_s = safety_poll_ms / 1000.0
+@@ -167,14 +176,16 @@
+                 errors += 1
+                 print(f"modbus error #{errors}: {e}", flush=True)
+                 now_err = time.monotonic()
+-                # Fail safe on single miss: any missed reply means our view is
+-                # untrusted -> trip immediately. Healthy link never misses
+-                # (0 drops), so no false trips. This gives gap > period +
+-                # blocking_timeout sensitivity: one missed poll trips instead
+-                # of needing 2 misses (which cost 2*period+overhead >500ms).
+-                # Time-based check retained as fallback.
++                # Debounced fail-safe: trip only on persistent loss, i.e.
++                # wall-time since last fresh tick exceeds STALE_TIMEOUT_S.
++                # Isolated single misses from light noise (drop/crc <=5%)
++                # give gap ~period+timeout+retry (~120-190ms) < timeout so
++                # no nuisance trip. Persistent loss (70% drop, delay,
++                # burst, stale) is re-probed every ~70ms (timeout+retry),
++                # so gap exceeds 0.40s after 4-5 misses (~350-420ms) and
++                # still meets 500ms OV deadline. No errors>=1 trip.
+                 if not trip.active:
+-                    if (now_err - last_fresh) > STALE_TIMEOUT_S or errors >= 1:
++                    if (now_err - last_fresh) > STALE_TIMEOUT_S:
+                         trip.set(True)
+                         print(f"TRIP: stale/no data for {now_err - last_fresh:.2f}s (errors={errors})", flush=True)
+                 # Retry immediately without full-period sleep to bound overhead:

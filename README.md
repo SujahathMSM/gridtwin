@@ -12,7 +12,8 @@ and then attack their own fix.
 ![STM32G4](https://img.shields.io/badge/MCU-STM32G491RE-03234B)
 ![Raspberry Pi 5](https://img.shields.io/badge/Controller-Raspberry%20Pi%205-A22846)
 ![Modbus RTU](https://img.shields.io/badge/Protocol-Modbus%20RTU-555555)
-![Campaign](https://img.shields.io/badge/campaign-3%20bugs%20found%20%C2%B7%203%20fixed%20%C2%B7%2021%2F21%20checks-2ea44f)
+![Campaign](https://img.shields.io/badge/campaign-4%20bugs%20found%20%C2%B7%204%20fixed%20%C2%B7%2031%2F31%20checks-2ea44f)
+![Open weights](https://img.shields.io/badge/judge-Muse%20Spark%20Open-0866FF)
 
 *Built for the Meta Global AI Developer Hackathon · Indie track · Theme: Push the Frontier (energy)*
 
@@ -58,7 +59,7 @@ flowchart LR
     subgraph AI["🤖 Agent layer · laptop + cloud"]
         direction TB
         A["Attacker<br/>Muse Spark"]
-        J["Judge<br/>Muse Spark"]
+        J["Judge<br/>Muse Spark Open"]
         F["Fixer<br/>Muse Spark"]
         A -- "finding" --> J
         J -- "verdict" --> F
@@ -92,20 +93,24 @@ flowchart LR
 
 ---
 
-## The campaign: three bugs found, proven, fixed, and re-attacked
+## The campaign: four bugs found, proven, fixed, and re-attacked
 
-An unedited run from [`runs/20261103-175501/`](runs/20261103-175501/). The agents started from the
-original controller with **no hints about any bug**. Each round attacks the controller *as patched by the
-previous round*, so the agents end up attacking their own fixes.
+Two unedited runs. Rounds 1–3 ([`runs/20261103-175501/`](runs/20261103-175501/)) started from the original
+controller with **no hints about any bug**. Rounds 4–5 ([`runs/20261104-074351/`](runs/20261104-074351/))
+continued from round 3's controller after we added a new safety rule, with the judge switched to
+**Muse Spark Open (open weights)**. Each round attacks the controller *as patched by the previous round*,
+so the agents end up attacking their own fixes.
 
-**3 rounds · 45 hardware runs · 9 measured failures · 3 fixes, each accepted on the first attempt ·
-21 of 21 verification checks passed · 44.7 minutes · ~415k tokens across 12 Muse Spark sessions**
+**5 rounds · 68 hardware runs · 14 measured failures · 4 fixes, each accepted on the first attempt ·
+31 of 31 verification checks passed · 70 minutes end to end · ~705k tokens across 17 agent sessions**
 
 | Round | What the attacker found | Measured on hardware | Fix | After the fix |
 |---|---|---|---|---|
 | **1** | The controller never checks the BMS freshness counter, so frozen data hides a real over-voltage | ❌ **no trip in 3 s** (real cell 3795 mV), 4 of 4 runs | Trip if the tick stops changing for 0.35 s | ✅ trips before the cell crosses the limit |
 | **2** | At the slowest allowed polling (500 ms) a **healthy** link misses the 500 ms deadline | ❌ **503.4 ms**, 3 of 3 runs | Cap the safety-check period at 400 ms | ✅ **403.3 ms** |
 | **3** | Two dropped replies in a row at a 220 ms poll delay the fail-safe past the deadline | ❌ **547.3 ms** | Fail safe on the first missed reply, 50 ms serial timeout | ✅ trips safely |
+| **4** | Round 3's fix trips on a **single** lost reply, so ordinary line noise shuts the site down (new rule 2b) | ❌ **nuisance trip** at 5 %, 5 % CRC and even **1 %** loss, 5 of 5 runs | Fail safe only after 0.40 s without fresh data; safety checks every 120 ms | ✅ no nuisance trip; worst-case trip **123.4 ms** |
+| **5** | Nothing. 6 attacks (long delays, a 10-reply burst, 5 % loss + 5 % CRC together) all held | — | — | ✅ 10-reply burst trips in 408.2 ms |
 
 ```mermaid
 flowchart TD
@@ -152,6 +157,39 @@ timer, while **two** dropped replies push the trip to 547 ms. It chose the polli
 The drop fault is random, so the judge's first reproduction passed. It ran the scenario again, measured the
 FAIL itself, then ran a healthy control at the same rate (✅ 223.4 ms) to prove the drops were the cause.
 
+### Round 4: the agents fixed their own over-correction
+
+After round 3 we added **rule 2b**: real RS-485 lines lose the odd reply, so light noise (up to 5 % of replies
+lost or corrupted) with no over-voltage must not cause a trip. We did not tell the agents the round 3 fix
+breaks it. The attacker read the code, ran a healthy control, then a 5 % loss run:
+
+| Who | Model | Scenario | Hardware verdict |
+|---|---|---|---|
+| Attacker | Muse Spark | Healthy, no over-voltage, 50 ms poll | ✅ PASS · no trip |
+| Attacker | Muse Spark | 5 % lost replies, 50 ms poll | ❌ **FAIL · nuisance trip** |
+| Attacker | Muse Spark | 5 % lost replies, 200 ms poll | ❌ **FAIL · nuisance trip** |
+| Judge | **Muse Spark Open** | Reproduce: 5 % loss, 50 ms | ❌ **FAIL · nuisance trip** |
+| Judge | **Muse Spark Open** | Control: healthy link | ✅ PASS · no trip |
+| Judge | **Muse Spark Open** | 5 % corrupted CRCs instead | ❌ **FAIL · nuisance trip** |
+| Judge | **Muse Spark Open** | Minimise: only **1 %** loss | ❌ **FAIL · nuisance trip** |
+
+**The open-weights judge's root cause:** *"Round 3 introduced unconditional single-miss fail-safe … This
+trips on any ModbusError (timeout on drop, bad CRC on crc) immediately, even when tick is fresh."*
+
+The fix has to satisfy two rules that pull in opposite directions: stay quiet through a few lost replies, but
+still trip within 500 ms when replies stop. The fixer debounced the fail-safe (trip after 0.40 s without
+fresh data) and paid for it with a faster safety loop (every 120 ms), so the deadline still holds. The judge
+approved it and added three checks of its own. All 10 checks passed, including every earlier round's failure.
+In round 5 the attacker spent its whole budget and found nothing.
+
+**How the worst-case trip time moved across the campaign** (healthy link, `--poll-ms 500`, worst-case timing):
+
+| Controller | Worst-case trip | Result |
+|---|---|---|
+| Original | 503.4 ms | ❌ FAIL |
+| After round 2 | 403.3 ms | ✅ PASS |
+| After round 4 | **123.4 ms** | ✅ PASS |
+
 <details>
 <summary><b>📂 Everything in the run folder</b></summary>
 
@@ -160,12 +198,13 @@ FAIL itself, then ran a healthy control at the same rate (✅ 223.4 ms) to prove
 | File | Contents |
 |---|---|
 | `scenarios.json` | All 45 hardware runs: scenario, hypothesis, verdict, latency split, link stats, controller log |
+| `models.json` | Which model ran each agent (rounds 4–5) |
 | `round{n}_attacker.json`, `round{n}_judge.json` | Every tool call and result, the final finding or verdict, and the **hardware evidence** (the measured FAILs it rests on) |
-| `round{n}_patch_1.diff` | The fixer's patch: [round 1](runs/20261103-175501/round1_patch_1.diff) · [round 2](runs/20261103-175501/round2_patch_1.diff) · [round 3](runs/20261103-175501/round3_patch_1.diff) |
+| `round{n}_patch_1.diff` | The fixer's patch: [round 1](runs/20261103-175501/round1_patch_1.diff) · [round 2](runs/20261103-175501/round2_patch_1.diff) · [round 3](runs/20261103-175501/round3_patch_1.diff) · [round 4](runs/20261104-074351/round4_patch_1.diff) |
 | `round{n}_review_1.json` | The judge's review and its extra hardware checks |
 | `round{n}_verification_1.json` | Every verification check after deployment |
-| `controller_final.py` | The controller after three rounds |
-| `soak.log` | The final controller running for an hour (see Results) |
+| `controller_final.py` | The controller after the run ([after round 3](runs/20261103-175501/controller_final.py) · [after round 5](runs/20261104-074351/controller_final.py)) |
+| `soak.log` | Round 3's controller running for an hour (see Results) |
 
 </details>
 
@@ -184,8 +223,11 @@ An AI that can argue its way to a conclusion is a liability in safety testing. T
   polling, which is normally random. With `timing: "worst_case"`, the STM32 raises the cell *right after it
   answers a read*, so the controller cannot see it before its next poll. A timing race becomes a repeatable
   measurement.
+- **Deterministic faults.** `burst` drops exactly the next *n* replies after the over-voltage, so a burst-loss
+  failure reproduces every time instead of whenever the random `drop` fault happens to line up.
 - **Separation of duties.** The attacker doesn't judge its finding, the fixer never tests its own patch, and the
-  orchestrator chooses the verification checks.
+  orchestrator chooses the verification checks. In rounds 4–5 the judge is also a **different model**
+  (Muse Spark Open) from the attacker and fixer (Muse Spark), so they don't share the same blind spots.
 
 **Why we added this:** in an earlier campaign
 ([`runs/20261103-164132`](runs/20261103-164132/)), the judge marked a slow-polling failure as reproduced
@@ -200,11 +242,16 @@ is now measured at 503.4 ms every time.
 | Agent | Model | Access | Its job | Tools |
 |---|---|---|---|---|
 | **Attacker** | Muse Spark `muse-spark-1.3` | Meta Model API, Responses API | Reads the controller's code and the bench's safety rule, forms hypotheses, and spends a small budget of hardware runs to find a failure | `describe_bench`, `read_controller_source`, `run_scenario`, `submit_finding` |
-| **Judge** | Muse Spark (separate sessions) | Meta Model API | Does not trust the attacker: reproduces the failure, runs controls, finds the minimal failing scenario and the responsible code. Later **reviews the fixer's diff** before it reaches the Pi, and can reject it or add up to 3 hardware checks of its own | `describe_bench`, `read_controller_source`, `run_scenario`, `submit_verdict`, `submit_review` |
+| **Judge** | **Muse Spark Open** `muse-spark-open-1026` (rounds 4–5) · Muse Spark (rounds 1–3) | Baseten, Chat Completions (open weights) · Meta Model API | Does not trust the attacker: reproduces the failure, runs controls, finds the minimal failing scenario and the responsible code. Later **reviews the fixer's diff** before it reaches the Pi, and can reject it or add up to 3 hardware checks of its own | `describe_bench`, `read_controller_source`, `run_scenario`, `submit_verdict`, `submit_review` |
 | **Fixer** | Muse Spark | Meta Model API | Writes the complete patched controller from the verdict and the history of earlier fixes. It never tests its own work | `submit_patch` |
 
-The judge can be pointed at Muse Spark Open on Baseten (`JUDGE_PROVIDER=baseten`, Chat Completions)
-with a config change. All runs shown here used `muse-spark-1.3` on the Meta Model API.
+Each agent's model is one line in `.env` (`ATTACKER_PROVIDER`, `JUDGE_PROVIDER`, `FIXER_PROVIDER`: `meta` or
+`baseten`), and every run records the models it used in `models.json`. `agents/check_models.py` lists the Meta
+models each key can reach and tests tool calling on Muse Spark Open before a campaign uses it.
+
+**Why the judge runs on open weights:** the judge is the agent that decides what counts as reproduced and
+which patches reach the hardware. Running it on a different model from the attacker and fixer makes its
+check independent, and open weights mean a lab or utility could run that gatekeeper on its own servers.
 
 **Why Muse Spark fits:** the attacker and judge have to plan across several tool calls, each of which costs
 ~10 s of real hardware time, so they need to reason before acting. The Responses API keeps the model's
@@ -214,7 +261,7 @@ so its output is structured JSON the orchestrator can check rather than free tex
 **Why three separate agents:** the one that designs the attack is not the one that judges it, and the one that
 writes the fix never grades it. The final verdict always comes from the hardware.
 
-**What the attacker is told:** the bench description (register map, the two safety rules, the controller's
+**What the attacker is told:** the bench description (register map, the safety rules, the controller's
 deployment range of 50–500 ms polling, the fault library) and the controller's source. It is never told
 what is wrong. In the campaign below it opened every round with a healthy control run, without being asked to.
 
@@ -228,15 +275,16 @@ and every call is logged.
 
 | Tool | Does | Safety rule |
 |---|---|---|
-| `describe_bench()` | Register map, the two safety rules, the deployment range, the fault library, timing modes and how a run works | Read-only |
+| `describe_bench()` | Register map, the safety rules (1, 2, 2b), the deployment range, the fault library, timing modes and how a run works | Read-only |
 | `read_controller_source()` | The controller under test | Read-only |
-| `run_scenario(faults, drift_mv, charge_a, poll_ms, timing, hypothesis)` | Resets the bench, restarts the controller at the requested polling rate, applies faults, pushes cell 4 up, returns the STM32's hardware-timed verdict, link statistics and the controller's log | Only 4 faults (`stale`, `delay`, `drop`, `crc`), ranges checked in Python **and** in firmware; polling clamped to 50–500 ms; a fixed scenario budget per agent (attacker 6, judge 4) |
+| `run_scenario(faults, drift_mv, charge_a, poll_ms, timing, hypothesis)` | Resets the bench, restarts the controller at the requested polling rate, applies faults, pushes cell 4 up, returns the STM32's hardware-timed verdict, link statistics and the controller's log | Only 5 faults (`stale`, `delay`, `drop`, `crc`, `burst`), ranges checked in Python **and** in firmware; polling clamped to 50–500 ms; a fixed scenario budget per agent (attacker 6, judge 4) |
 | `submit_finding` / `submit_verdict` | Ends the agent's turn with structured JSON | **Refused** unless backed by a FAIL the agent measured itself (see *Keeping the agents honest*) |
 | `submit_patch` / `submit_review` | The patch, then the judge's approve/reject with extra checks | A patch must compile and keep the CLI, then pass review, before it reaches the Pi |
 
 After an approved patch, the **orchestrator**, not an agent, deploys it to the Pi over SSH and replays:
 this round's failing scenario, **every earlier round's failure** (regression), a healthy over-voltage with
-worst-case timing, a healthy idle false-trip check, and the judge's extra checks. All must PASS.
+worst-case timing, a healthy idle false-trip check, a light-noise nuisance-trip check at 50 ms polling, and
+the judge's extra checks. All must PASS.
 Otherwise the old controller is put back and the fixer gets the results, up to 3 attempts.
 
 </details>
@@ -405,7 +453,7 @@ measured trip latency with PASS or FAIL.
 
 <br>
 
-Copy `.env.example` to `.env` and set `MODEL_API_KEY`, `NUCLEO_PORT` and `PI_SSH`
+Copy `.env.example` to `.env` and set `MODEL_API_KEY` (and `BASETEN_API_KEY` for Muse Spark Open), `NUCLEO_PORT` and `PI_SSH`
 (an SSH host the laptop can reach without a password). Close the monitor and stop the Pi controller:
 the orchestrator runs it itself.
 
@@ -415,6 +463,8 @@ python agents/gridtwin.py --scenario stale     # bench check, no AI: expect FAIL
 python agents/gridtwin.py --scenario healthy --poll-ms 500 --timing worst_case   # expect FAIL ~503 ms
 python agents/gridtwin.py                      # the campaign: up to 3 rounds of attack -> judge -> fix -> review -> verify
 python agents/gridtwin.py --rounds 1           # a single round
+python agents/gridtwin.py --start-from runs/20261103-175501 --rounds 2   # continue from an earlier campaign
+python agents/check_models.py                  # which Meta models your keys can use, tool-calling test
 python agents/gridtwin.py --reset              # put the original controller back on the Pi
 ```
 
@@ -432,19 +482,21 @@ python agents/gridtwin.py --reset              # put the original controller bac
 - [x] Multi-round campaign: the attacker re-attacks each patched controller, with regression replay of every earlier failure
 - [x] Judge reviews every patch before deployment and adds its own hardware checks
 - [x] Evidence rule enforced in code, and a worst-case timing mode in firmware that makes timing races reproducible
-- [x] Two safety rules (trip in time, no false trips) across the full 50–500 ms deployment range
+- [x] Safety rules for trip time, false trips and nuisance trips under light noise, across the full 50–500 ms deployment range
+- [x] Deterministic `burst` fault; campaigns that continue from an earlier controller (`--start-from`)
+- [x] A model per agent: judge on Muse Spark Open (open weights, Baseten), attacker and fixer on Muse Spark
 - [ ] Next: longer soak tests inside the verification step, more fault types (grid sag, split frames), a live dashboard
 
 ## Results
 
 ### The campaign
 
-See [the campaign](#the-campaign-three-bugs-found-proven-fixed-and-re-attacked) above: three distinct safety
-failures, each measured on hardware by two independent agents, fixed and verified with 21 of 21 checks passing.
+See [the campaign](#the-campaign-four-bugs-found-proven-fixed-and-re-attacked) above: four distinct safety
+failures, each measured on hardware by two independent agents, fixed and verified with 31 of 31 checks passing.
 
-### One-hour soak of the final controller
+### One-hour soak of round 3's controller
 
-The verification checks last seconds each. To check the final controller for false trips over a longer
+The verification checks last seconds each. To check round 3's controller for false trips over a longer
 period, it ran on a healthy link at the **fastest allowed polling (50 ms)**:
 
 | Polls | Duration | Missed replies | Trips (false) |
@@ -473,16 +525,19 @@ tripped, but the Nucleo saw no trip and scored it **FAIL**. The judge trusts the
 
 ### Known limitations
 
-- **The round 3 fix is strict.** It trips on the first missed reply. That is safe, but on a real site with an
-  occasionally noisy RS-485 line, every lost reply would cause a short nuisance trip until the next good read.
-  A production controller would weigh that against the deadline, for example by retrying immediately once.
-  The bench's rule 2 only defines false trips on a *healthy* link, so the agents optimised for that.
-- **The 50 ms serial timeout leaves about 7 ms of margin** over a full reply at 9600 baud. The one-hour soak
-  saw no misses, but a heavily loaded Pi could eat that margin.
-- **Random faults reproduce randomly.** `drop` at 70 % reproduced the round 3 failure in 1 of 2 judge runs; the
-  evidence rule only requires one measured FAIL. `stale` and worst-case timing reproduce every time.
-- **One model family.** All agents ran on `muse-spark-1.3`. The open-weights judge path is implemented but
-  was not used in these runs.
+The first version of this list (after round 3) named a too-strict fail-safe, a thin serial-timeout margin,
+randomly reproducing faults and a single model family. Rule 2b and round 4 fixed the first, which also made the
+second harmless (one late reply no longer trips anything). The `burst` fault fixed the third, and the
+open-weights judge the fourth. What is left:
+
+- **The controller now polls every 120 ms, whatever `--poll-ms` says above that.** That is how round 4 kept the
+  deadline with a debounced fail-safe. It is safe, but a site that set 500 ms to keep bus traffic low gets about
+  4× more traffic. A production controller would make that trade-off explicit.
+- **Deadline margin under a total blackout is about 90 ms** (a 10-reply burst tripped in 408.2 ms against
+  500 ms). The fail-safe timer is a hard-coded 0.40 s, tuned to this bench's 100 ms freshness counter.
+- **The hour-long soak ran on round 3's controller**, not the final one. The final one passed its 10 s light-noise
+  checks at 50 ms polling, but has not been soaked for an hour.
+- **Random faults still reproduce randomly.** The evidence rule needs one measured FAIL, not a failure rate.
 
 ---
 

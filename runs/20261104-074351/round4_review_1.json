@@ -1,0 +1,43 @@
+{
+  "final": {
+    "approve": true,
+    "problems": [],
+    "extra_checks": [
+      {
+        "faults": [],
+        "drift_mv": 0,
+        "charge_a": 10,
+        "poll_ms": 500,
+        "timing": "random",
+        "why": "healthy slow-poll must never false-trip despite internal 120ms cap - verifies wall-time staleness does not misinterpret healthy 100ms tick at 500->120 capped rate"
+      },
+      {
+        "faults": [
+          {
+            "name": "drop",
+            "value": "5"
+          }
+        ],
+        "drift_mv": 0,
+        "charge_a": 10,
+        "poll_ms": 50,
+        "timing": "random",
+        "why": "light noise 5% drop at fastest poll must not nuisance-trip (rule 2b) - single-miss gap ~100ms <0.40s timeout, needs 6 consecutive misses (~1.5e-8) so no trip in 10s"
+      },
+      {
+        "faults": [
+          {
+            "name": "drop",
+            "value": "70"
+          }
+        ],
+        "drift_mv": 400,
+        "charge_a": 10,
+        "poll_ms": 500,
+        "timing": "worst_case",
+        "why": "heavy 70% loss after OV at max poll must still trip <500ms via debounced wall-time + fast retry (120+5*70=470ms worst) - proves deadline still met after removing single-miss trip"
+      }
+    ]
+  },
+  "tokens": 15900
+}

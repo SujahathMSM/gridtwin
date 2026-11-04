@@ -1,0 +1,5 @@
+{
+  "attacker": "muse-spark-1.3 via Meta Model API",
+  "judge": "meta-models/muse-spark-open-1026 via Baseten (open weights)",
+  "fixer": "muse-spark-1.3 via Meta Model API"
+}
