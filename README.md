@@ -14,6 +14,7 @@ and then attack their own fix.
 ![Modbus RTU](https://img.shields.io/badge/Protocol-Modbus%20RTU-555555)
 ![Campaign](https://img.shields.io/badge/campaign-4%20bugs%20found%20%C2%B7%204%20fixed%20%C2%B7%2031%2F31%20checks-2ea44f)
 ![Open weights](https://img.shields.io/badge/judge-Muse%20Spark%20Open-0866FF)
+[![CI](https://github.com/SujahathMSM/gridtwin/actions/workflows/ci.yml/badge.svg)](https://github.com/SujahathMSM/gridtwin/actions/workflows/ci.yml)
 
 *Built for the Meta Global AI Developer Hackathon · Indie track · Theme: Push the Frontier (energy)*
 
@@ -237,6 +238,62 @@ is now measured at 503.4 ms every time.
 
 ---
 
+## An outside review, and what the hardware said
+
+With the campaign above done, we asked for an independent code review of the whole repository. Its top
+finding was blunt: **the trip line is not fail-safe.** The controller raises GPIO23 to trip and lowers it on
+exit, so a crashed controller, a dead Pi or a cut wire all leave the battery connected. And none of our
+scenarios ever attacked the controller itself, so the agents could not have found it.
+
+**We measured it before changing anything** (final controller from round 4, original interlock):
+
+| Attack | What the controller's log says | What the battery saw |
+|---|---|---|
+| Controller killed (SIGKILL) | nothing: it is dead | ❌ **FAIL · no trip in 3 s** |
+| Trip wire cut | `TRIP: cell 4 at 3694 mV … trip=ON` | ❌ **FAIL · no trip in 3 s** |
+
+The second row is the important one: the controller did its job and logged it, and the battery never found
+out. A controller's own log is not evidence of safety. Runs: [`runs/20261104-182442`](runs/20261104-182442/),
+[`runs/20261104-182610`](runs/20261104-182610/).
+
+### What we changed on the bench
+
+| Review point | Change |
+|---|---|
+| Trip line not fail-safe | New **fail-safe interlock** (`--interlock failsafe`): GPIO23 high = battery allowed; low, a cut wire or a dead Pi = trip. A **heartbeat on GPIO24** opens the interlock if it stops for 250 ms. The old contract stays as `legacy` so rounds 1–5 still reproduce |
+| Agents never attack the controller | New faults: `ctl_kill`, `ctl_freeze` (SIGSTOP for up to 3 s) and `cut` (trip wire) |
+| A controller can release the trip too early, unseen | Firmware fails a **premature release**: the interlock closing while a cell is still over the limit |
+| The emulator adds its own latency | Serial output through an interrupt-driven ring buffer, Modbus replies interrupt-driven, trip interrupt at top priority |
+| Fixes tuned to this bench | **Held-out checks** the agents never see (60 A charging, 700 mV, odd polling rates, mixed noise, a 3-reply burst, kill, freeze, cut). A failure only tells the fixer *what* went wrong, never the scenario |
+| One pass proves little for random faults | Random checks run 5 times (`--repeats`) |
+| LLM code runs on the Pi unchecked | Patches are rejected unless they import only an allowlist; `subprocess`, `os`, `socket`, `eval`/`exec`, `open` and friends are blocked. Every patch the agents have written so far passes it |
+| No tests | 46 Python tests (verdict logic, evidence rule, sandbox, Modbus parsing) and 25 firmware checks compiled with gcc, run by GitHub Actions |
+| Smaller items | Watchdog with reset reason, strict number parsing, `BENCH_FAULT` never counted as evidence, API and SSH retries, atomic deploy, bounded logs |
+
+### Then the agents met the new interlock
+
+Two campaigns from round 4's controller with `--interlock failsafe` ([`runs/20261104-183151`](runs/20261104-183151/),
+[`runs/20261104-190451`](runs/20261104-190451/); 175 hardware runs). Nobody told the agents the controller no
+longer fit.
+
+- **Found and proven.** The attacker saw the healthy controller hold the interlock open (`FAIL false_trip` at
+  50, 200 and 500 ms polling) and read why from the code: wrong polarity, no heartbeat. The open-weights judge
+  reproduced it.
+- **Fixed, partly.** Every patch got the polarity and the heartbeat right: the hidden **kill** and **cut-wire**
+  checks passed. Building on its own previous patch, the fixer also added release hysteresis (3 consecutive safe
+  readings), which fixed a premature release under heavy packet loss (5 of 5 runs).
+- **Not fixed: a textbook watchdog bug.** Every patch toggled the heartbeat from its own thread. Freeze the
+  controller during an over-voltage and the watchdog trips correctly, but when the process resumes the
+  heartbeat thread wakes first and **closes the interlock before the safety loop has looked at the battery**:
+  `premature_release`, about 1.1 s after the trip, with cell 4 still at 3694 mV.
+
+**The judge (Muse Spark Open) approved five patches with this bug. The hidden freeze check rejected all five.**
+That is the whole argument for this project in one line: a convincing review is not a measurement. The fix a
+human engineer would write is to toggle the heartbeat from the safety loop, only after a fresh reading. The
+agents had not found it when the run ended, so round 5 is recorded as **open**.
+
+---
+
 ## How the Muse models are used
 
 | Agent | Model | Access | Its job | Tools |
@@ -277,7 +334,7 @@ and every call is logged.
 |---|---|---|
 | `describe_bench()` | Register map, the safety rules (1, 2, 2b), the deployment range, the fault library, timing modes and how a run works | Read-only |
 | `read_controller_source()` | The controller under test | Read-only |
-| `run_scenario(faults, drift_mv, charge_a, poll_ms, timing, hypothesis)` | Resets the bench, restarts the controller at the requested polling rate, applies faults, pushes cell 4 up, returns the STM32's hardware-timed verdict, link statistics and the controller's log | Only 5 faults (`stale`, `delay`, `drop`, `crc`, `burst`), ranges checked in Python **and** in firmware; polling clamped to 50–500 ms; a fixed scenario budget per agent (attacker 6, judge 4) |
+| `run_scenario(faults, drift_mv, charge_a, poll_ms, timing, hypothesis)` | Resets the bench, restarts the controller at the requested polling rate, applies faults, pushes cell 4 up, returns the STM32's hardware-timed verdict, link statistics and the controller's log | 8 faults (`stale`, `delay`, `drop`, `crc`, `burst`, `cut`, `ctl_kill`, `ctl_freeze`), ranges checked in Python **and** in firmware; polling clamped to 50–500 ms; a fixed scenario budget per agent (attacker 6, judge 4) |
 | `submit_finding` / `submit_verdict` | Ends the agent's turn with structured JSON | **Refused** unless backed by a FAIL the agent measured itself (see *Keeping the agents honest*) |
 | `submit_patch` / `submit_review` | The patch, then the judge's approve/reject with extra checks | A patch must compile and keep the CLI, then pass review, before it reaches the Pi |
 
@@ -329,13 +386,19 @@ The Nucleo runs a small physics model, ten times a second, at 60× real time:
 - A **potentiometer** on the desk pushes cell 4 towards over-voltage by hand, for live demos.
 - **Worst-case timing** (`drift sync <mV>`): the cell is raised the moment the last bit of a Modbus read
   reply leaves the STM32, the worst possible moment for a polling controller.
+- **The battery's interlock**, in two modes. `legacy`: GPIO23 high = trip. `failsafe` (energize to run):
+  GPIO23 high = permissive, low or cut = trip, and a heartbeat on GPIO24 opens the interlock after 250 ms of
+  silence. The trip time is when the interlock opened, whatever opened it (the line, the watchdog, a cut).
+- **Premature release** is a FAIL: once tripped, the interlock must stay open while a cell is over the limit.
+- An **independent watchdog** resets a hung emulator (a frozen emulator would look like a perfectly stale BMS).
 
 ```mermaid
 stateDiagram-v2
     [*] --> Armed
     Armed --> OverVoltage: any cell >= limit · timer starts
-    OverVoltage --> Tripped: trip edge on PB4 · latency logged · PASS or FAIL
+    OverVoltage --> Tripped: interlock opens · latency logged · PASS or FAIL
     OverVoltage --> NoTrip: 3 s with no trip · FAIL
+    Tripped --> PrematureRelease: interlock closes while a cell is over the limit · FAIL
     Tripped --> Armed: cells back below limit and trip released
     NoTrip --> Armed: cells back below limit
 ```
@@ -379,7 +442,8 @@ Both boards use 3.3 V logic and connect directly. Each board is powered by its o
 | Pi pin 8 (GPIO14, TX) | Nucleo PC5 (D0) | Modbus, Pi → Nucleo |
 | Pi pin 10 (GPIO15, RX) | Nucleo PC4 (D1) | Modbus, Nucleo → Pi |
 | Pi pin 6 (GND) | Nucleo GND | Shared ground |
-| Pi pin 16 (GPIO23) | Nucleo PB4 (D5) | Safety-trip line |
+| Pi pin 16 (GPIO23) | Nucleo PB4 (D5) | Trip line (legacy: high = trip; failsafe: high = permissive) |
+| Pi pin 18 (GPIO24) | Nucleo PB5 (D4) | Heartbeat (failsafe interlock only) |
 | Trip line | 330 Ω → red LED → GND | Visible trip |
 | Trip line | 10 kΩ → GND | Pull-down, no false trips at boot |
 | Potentiometer | 3V3 / PA0 (A0) / GND | Manual cell drift |
@@ -399,6 +463,8 @@ gridtwin/
 ├── agents/        gridtwin.py (orchestrator), bench.py (hardware tools), llm.py (tool-calling loop),
 │                  check_models.py (which Meta models your keys reach)
 ├── runs/          every agent run: scenarios, tool calls, verdicts, patches, verification, patched controllers
+├── tests/         pytest for the referee, orchestrator and controller; firmware host tests (gcc, no hardware)
+├── .github/       CI: both test suites on every push
 └── docs/          setup guides
 ```
 
@@ -473,6 +539,9 @@ python agents/gridtwin.py --rounds 1           # a single round
 python agents/gridtwin.py --start-from runs/20261103-175501 --rounds 2   # continue from an earlier campaign
 python agents/check_models.py                  # which Meta models your keys can use, tool-calling test
 python agents/gridtwin.py --reset              # put the original controller back on the Pi
+python agents/gridtwin.py --scenario kill      # no AI: kill the controller during an over-voltage
+python agents/gridtwin.py --start-from runs/20261104-074351 --interlock failsafe   # the fail-safe campaign
+python -m pytest tests                         # 46 tests, no hardware needed
 ```
 
 </details>
@@ -492,7 +561,9 @@ python agents/gridtwin.py --reset              # put the original controller bac
 - [x] Safety rules for trip time, false trips and nuisance trips under light noise, across the full 50–500 ms deployment range
 - [x] Deterministic `burst` fault; campaigns that continue from an earlier controller (`--start-from`)
 - [x] A model per agent: judge on Muse Spark Open (open weights, Baseten), attacker and fixer on Muse Spark
-- [ ] Next: longer soak tests inside the verification step, more fault types (grid sag, split frames), a live dashboard
+- [x] After an outside review: fail-safe interlock with heartbeat, controller kill/freeze/cut faults, premature-release check, held-out checks, repeated random checks, patch sandbox
+- [x] 46 Python tests and 25 firmware checks in CI
+- [ ] Next: the open round 5 (heartbeat from the safety loop), longer soak tests inside verification, more fault types (grid sag, split frames), a live dashboard
 
 ## Results
 
@@ -558,6 +629,14 @@ open-weights judge the fourth. What is left:
 - **Soaks are manual and short.** The final controller was soaked for about 10 minutes under light noise, not
   hours, and soaks are not yet part of the automatic verification.
 - **Random faults still reproduce randomly.** The evidence rule needs one measured FAIL, not a failure rate.
+  Verification repeats random checks 5 times, which still lets a rare failure through.
+- **Round 5 is open.** Under the fail-safe interlock, the agents' controllers still kick the heartbeat from a
+  thread, so a resumed controller closes the interlock before it has re-checked the battery. Rounds 1–4 and
+  the soaks above use the legacy interlock.
+- **No OS-level sandbox yet.** Patches pass an import/call allowlist, but the controller still runs as a normal
+  user with network access. A dedicated user without network (systemd `PrivateNetwork=yes`) is the next step.
+- **A Python controller is a supervisory layer.** On a real system the primary over-voltage protection lives in
+  the BMS hardware and firmware; this bench tests the supervisory controller that sits above it.
 
 ---
 

@@ -1,0 +1,439 @@
+{
+  "final": {
+    "found_failure": true,
+    "rule_broken": "2_no_false_trips",
+    "scenario": {
+      "charge_a": 10,
+      "drift_mv": 0,
+      "faults": [],
+      "poll_ms": 200,
+      "timing": "random"
+    },
+    "summary": "Failsafe-interlock polarity inversion + missing heartbeat causes healthy-idle false trip. Bench now uses failsafe interlock (GPIO23 HIGH=permissive, LOW=trip, GPIO24 must toggle every 250ms; deliberate trip=drive LOW) but controller still implements legacy (TripLine active_high True initial False, trip.set(True)=HIGH on OV, trip=off=LOW at idle, never touches GPIO24). Result: at idle with healthy link cells ~3285-3299mV <3650 and log trip=off, STM32 measures interlock OPEN -> FAIL false_trip 'keeps interlock open at idle (even after restart)'. Reproduced 3x: poll 200, 500, 50ms drift 0 faults [] all FAIL false_trip, plus drift 400 OV run also FAIL same idle-open (never permissive). Controller can never hold permissive: idle LOW is read as trip, and absent heartbeat would open interlock after 250ms even if polarity fixed.",
+    "hardware_evidence": [
+      {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 0,
+          "charge_a": 10,
+          "timing": "random",
+          "poll_ms": 200
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "latency_ms": null,
+        "until_reported_ms": null,
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+      },
+      {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 400,
+          "charge_a": 10,
+          "timing": "worst_case",
+          "poll_ms": 200
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "latency_ms": null,
+        "until_reported_ms": null,
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+      },
+      {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 0,
+          "charge_a": 10,
+          "timing": "random",
+          "poll_ms": 500
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "latency_ms": null,
+        "until_reported_ms": null,
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+      },
+      {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 0,
+          "charge_a": 10,
+          "timing": "random",
+          "poll_ms": 50
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "latency_ms": null,
+        "until_reported_ms": null,
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+      }
+    ]
+  },
+  "transcript": [
+    {
+      "agent": "attacker",
+      "tool": "describe_bench",
+      "args": {},
+      "result": {
+        "battery": "4-cell LiFePO4 pack, 100 Ah, emulated by an STM32 (physics at 60x real time)",
+        "link": "Modbus RTU, slave address 1, 9600 baud 8N1, over UART",
+        "register_map": {
+          "0-3": "cell 1-4 voltage, mV",
+          "4": "pack voltage, 10 mV",
+          "5": "pack current, 0.1 A signed (+ = charging)",
+          "6": "temperature, 0.1 degC",
+          "7": "state of charge, 0.1 %",
+          "8": "grid voltage, V",
+          "9": "status bits (bit0 trip line high)",
+          "10": "simulation tick, +1 every 100 ms (a freshness counter)",
+          "11": "charge current limit, 0.1 A, writable"
+        },
+        "safety_rules": {
+          "1_trip_in_time": "When any cell reaches 3650 mV, the controller must raise its trip line (GPIO23) within 500 ms. The STM32 timestamps the over-voltage and the trip edge in hardware (1 us resolution).",
+          "2_no_false_trips": "On a healthy link with no over-voltage, the controller must never trip: a false trip shuts the site down.",
+          "2b_no_nuisance_trips": "Real RS-485 lines lose or corrupt the odd reply. With light noise only (drop and/or crc, each <= 5 %) and no over-voltage, the controller must not trip either. With heavier faults (stale data, delays, bursts, > 5 % loss, controller faults) and no over-voltage, a fail-safe trip is acceptable.",
+          "3_fail_safe": "If the controller is killed or frozen, or the trip wire is cut, an over-voltage must still be tripped within 500 ms. (Under the legacy interlock this cannot hold: the battery side only reacts to a live controller driving the line high.)",
+          "4_no_premature_release": "Once tripped, the interlock must stay open while any cell is at or above the limit. Releasing early is a FAIL even if the trip itself was on time."
+        },
+        "interlock": {
+          "legacy": "GPIO23 (trip line) HIGH = trip, LOW = battery allowed. The battery side only reacts to a high line.",
+          "failsafe": "energize to run. GPIO23 HIGH = permissive (battery allowed); LOW, a cut wire or an unpowered Pi = trip. GPIO24 is a heartbeat: it must change level at least every 250 ms or the interlock opens by itself, so a hung or killed controller trips. A deliberate trip = drive GPIO23 low."
+        },
+        "controller_deployment": "The controller runs with --poll-ms between 50 and 500 ms depending on the site; the default is 200 ms. Both safety rules must hold across that whole range.",
+        "how_a_scenario_runs": "baseline (no faults, all cells ~3.30 V, controller restarted if poll_ms changed) -> faults applied -> after 1 s, cell 4 is pushed up by drift_mv -> the STM32 reports PASS (trip within deadline), FAIL (late trip) or FAIL no_trip (no trip within 3 s) -> faults cleared, back to baseline. drift_mv >= 400 causes an over-voltage; drift_mv <= 250 does not, which tests rules 2 and 2b (PASS = no trip, FAIL false_trip / nuisance_trip); 251-399 is refused as ambiguous. Runs without an over-voltage watch the controller for 5 s (10 s with light noise). After a trip the bench keeps watching 1.5 s for a premature release. BENCH_FAULT means the bench itself misbehaved: it is not evidence about the controller.",
+        "timing": {
+          "random": "default. The drift is applied whenever the bench sends the command, so it lands at a random point in the controller's poll cycle. Failures that depend on timing show up only some of the time.",
+          "worst_case": "the STM32 applies the drift right after it finishes answering a read request: the controller has just looked and cannot see the over-voltage before its next read. Makes timing races reproducible. If no read reply goes out within 2 s, the drift is applied anyway (reported as drift_applied=timeout)."
+        },
+        "faults": {
+          "stale": {
+            "values": [
+              "on",
+              "off"
+            ],
+            "doc": "BMS keeps answering with frozen values (cells, current, temperature, SOC, tick) while the real battery keeps changing"
+          },
+          "delay": {
+            "min": 0,
+            "max": 2000,
+            "unit": "ms",
+            "doc": "every Modbus reply is sent this many ms late"
+          },
+          "drop": {
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "doc": "this percentage of Modbus requests get no reply"
+          },
+          "crc": {
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "doc": "this percentage of Modbus replies carry a corrupted CRC"
+          },
+          "burst": {
+            "min": 0,
+            "max": 10,
+            "unit": "replies",
+            "doc": "exactly this many read replies are lost right after cell 4 is pushed up (an interference burst). Deterministic: combined with timing=worst_case it reproduces every time"
+          },
+          "cut": {
+            "values": [
+              "on"
+            ],
+            "doc": "the trip wire is cut: the battery side can no longer see the controller's trip line"
+          },
+          "ctl_kill": {
+            "values": [
+              "on"
+            ],
+            "doc": "the controller process is killed (SIGKILL) 0.5 s before cell 4 is pushed up"
+          },
+          "ctl_freeze": {
+            "min": 100,
+            "max": 3000,
+            "unit": "ms",
+            "doc": "the controller process is frozen (SIGSTOP) for this long, starting 0.3 s before cell 4 is pushed up, then resumed"
+          }
+        },
+        "interlock_in_use": "failsafe: energize to run. GPIO23 HIGH = permissive (battery allowed); LOW, a cut wire or an unpowered Pi = trip. GPIO24 is a heartbeat: it must change level at least every 250 ms or the interlock opens by itself, so a hung or killed controller trips. A deliberate trip = drive GPIO23 low."
+      },
+      "seconds": 0.0
+    },
+    {
+      "agent": "attacker",
+      "tool": "read_controller_source",
+      "args": {},
+      "result": {
+        "path": "pi/controller.py (as currently deployed)",
+        "source": "#!/usr/bin/env python3\n\"\"\"GridTwin-HIL day 1: the energy controller under test (runs on the Raspberry Pi 5).\n\nIt polls the battery that the Nucleo emulates over Modbus RTU and pulls the\nsafety-trip line (GPIO23) high as soon as any cell reaches the over-voltage\nlimit. The Nucleo times how long that took.\n\nUsage on the Pi:\n    python3 controller.py                       # defaults: /dev/ttyAMA0, 9600 baud\n    python3 controller.py --poll-ms 100         # poll faster -> lower trip latency\n    python3 controller.py --no-gpio --port /dev/ttyUSB0   # run without GPIO (testing)\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport sys\nimport time\n\nimport serial  # pip install pyserial\n\nSLAVE_ADDR = 1\nNUM_REGS = 12\nREG_NAMES = [\n    \"cell1_mv\", \"cell2_mv\", \"cell3_mv\", \"cell4_mv\", \"pack_10mv\", \"current_da\",\n    \"temp_dc\", \"soc_pm\", \"grid_v\", \"status\", \"tick\", \"charge_limit_da\",\n]\n\n# Freshness fail-safe: tick (reg 10) increments every 100ms.\n# If tick is frozen / no fresh reply for longer than this, we cannot trust\n# cells -> trip. Debounced wall-time only (no single-miss trip) so light\n# noise (drop/crc <=5% -> isolated misses, gap ~period+timeout ~100-190ms)\n# does not trip, while persistent loss with fast retry reaches timeout in\n# ~350-420ms and still meets 500ms OV deadline.\n# 0.40s: > max triple-miss gap at capped period (120+3*70=330ms) so 1-3\n# consecutive misses never trip; needs 4-5 consecutive (prob ~1e-4 at 10%\n# combined loss) -> no nuisance in 10s; yet detection latency\n# (Pc + k*70) stays <500ms for Pc<=120.\nSTALE_TIMEOUT_S = 0.40\n\n# Safety deadline cap: worst-case OV right after a reply is invisible until\n# the next read completes, so latency ~= effective period + read overhead\n# (~33ms). With --poll-ms=500 this exceeds the 500ms deadline, so the\n# internal safety period is capped. Capped to 120ms (not 400ms) so that\n# debounced fail-safe (needing 4-5 fast retries x70ms) still trips <500ms:\n# e.g. 120+5*70=470 worst, typically ~350-420ms. Faster polling does not\n# cause false trips: staleness is wall-time based (STALE_TIMEOUT_S).\nMAX_SAFETY_POLL_MS = 120\n\n# Bound blocking/retry overhead for burst loss: pyserial timeout must be\n# small so single-miss gap (period + timeout) stays <500ms even at capped\n# period. 50ms still covers healthy 29-byte frame (~30ms @9600) with margin.\nSERIAL_TIMEOUT_S = 0.05\n# Retry delay on error: retry immediately without full-period sleep so\n# persistent loss is re-probed in ~timeout+retry (~70ms), i.e. >=5 attempts\n# per 500ms even at max poll.\nERROR_RETRY_S = 0.02\n\n\nclass ModbusError(Exception):\n    pass\n\n\ndef crc16(data: bytes) -> int:\n    crc = 0xFFFF\n    for b in data:\n        crc ^= b\n        for _ in range(8):\n            crc = (crc >> 1) ^ 0xA001 if crc & 1 else crc >> 1\n    return crc\n\n\ndef with_crc(body: bytes) -> bytes:\n    c = crc16(body)\n    return body + bytes([c & 0xFF, c >> 8])\n\n\ndef build_read(addr: int, start: int, count: int) -> bytes:\n    return with_crc(bytes([addr, 0x03, start >> 8, start & 0xFF, count >> 8, count & 0xFF]))\n\n\ndef build_write(addr: int, reg: int, value: int) -> bytes:\n    return with_crc(bytes([addr, 0x06, reg >> 8, reg & 0xFF, value >> 8, value & 0xFF]))\n\n\ndef check_crc(frame: bytes) -> None:\n    if len(frame) < 4 or crc16(frame[:-2]) != frame[-2] | (frame[-1] << 8):\n        raise ModbusError(f\"bad CRC in {frame.hex(' ')}\")\n\n\ndef parse_read_response(addr: int, count: int, frame: bytes) -> list[int]:\n    if len(frame) == 5 and frame[1] == 0x83:\n        check_crc(frame)\n        raise ModbusError(f\"exception code {frame[2]}\")\n    expected = 5 + 2 * count\n    if len(frame) != expected:\n        raise ModbusError(f\"expected {expected} bytes, got {len(frame)}: {frame.hex(' ')}\")\n    check_crc(frame)\n    if frame[0] != addr or frame[1] != 0x03 or frame[2] != 2 * count:\n        raise ModbusError(f\"unexpected header {frame[:3].hex(' ')}\")\n    return [(frame[3 + 2 * i] << 8) | frame[4 + 2 * i] for i in range(count)]\n\n\ndef read_registers(ser: serial.Serial, addr: int, start: int, count: int) -> list[int]:\n    ser.reset_input_buffer()\n    ser.write(build_read(addr, start, count))\n    expected = 5 + 2 * count\n    frame = ser.read(expected)            # pyserial stops at timeout if short\n    if len(frame) >= 2 and frame[1] == 0x83 and len(frame) >= 5:\n        frame = frame[:5]\n    if not frame:\n        raise ModbusError(\"no reply (timeout)\")\n    return parse_read_response(addr, count, frame)\n\n\ndef to_signed(v: int) -> int:\n    return v - 0x10000 if v & 0x8000 else v\n\n\nclass TripLine:\n    \"\"\"GPIO23 safety-trip output. Falls back to a dummy when --no-gpio is set.\"\"\"\n\n    def __init__(self, pin: int, enabled: bool):\n        self._dev = None\n        if enabled:\n            from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere\n            self._dev = OutputDevice(pin, active_high=True, initial_value=False)\n        self.active = False\n\n    def set(self, on: bool) -> None:\n        self.active = on\n        if self._dev is not None:\n            self._dev.on() if on else self._dev.off()\n\n\ndef main() -> int:\n    ap = argparse.ArgumentParser(description=\"GridTwin day-1 controller under test\")\n    ap.add_argument(\"--port\", default=\"/dev/ttyAMA0\")\n    ap.add_argument(\"--baud\", type=int, default=9600)\n    ap.add_argument(\"--poll-ms\", type=int, default=200, help=\"poll period in ms\")\n    ap.add_argument(\"--limit-mv\", type=int, default=3650, help=\"cell over-voltage limit\")\n    ap.add_argument(\"--rearm-mv\", type=int, default=3550,\n                    help=\"release the trip when every cell is below this\")\n    ap.add_argument(\"--trip-pin\", type=int, default=23, help=\"BCM GPIO number for the trip line\")\n    ap.add_argument(\"--no-gpio\", action=\"store_true\", help=\"don't touch GPIO (for testing)\")\n    args = ap.parse_args()\n\n    # Effective safety poll period: honor --poll-ms when fast, but cap at\n    # MAX_SAFETY_POLL_MS so the 500ms hardware deadline holds over the full\n    # deployment range (50-500ms) even with worst-case after_reply phasing,\n    # ~33ms Modbus overhead, and debounced (4-5 miss) fail-safe.\n    # Faster polling does not cause false trips:\n    # staleness is wall-time based (STALE_TIMEOUT_S).\n    safety_poll_ms = min(args.poll_ms, MAX_SAFETY_POLL_MS)\n    safety_poll_s = safety_poll_ms / 1000.0\n\n    trip = TripLine(args.trip_pin, enabled=not args.no_gpio)\n    ser = serial.Serial(args.port, args.baud, bytesize=8, parity=\"N\", stopbits=1,\n                        timeout=SERIAL_TIMEOUT_S)\n    print(f\"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, \"\n          f\"trip at {args.limit_mv} mV, re-arm below {args.rearm_mv} mV\", flush=True)\n    if safety_poll_ms != args.poll_ms:\n        print(f\"controller: safety poll capped to {safety_poll_ms} ms \"\n              f\"(requested {args.poll_ms} ms) to meet 500ms deadline\", flush=True)\n\n    errors = 0\n    last_print = 0.0\n    last_tick = None\n    last_fresh = time.monotonic()\n    try:\n        while True:\n            t0 = time.monotonic()\n            try:\n                regs = read_registers(ser, SLAVE_ADDR, 0, NUM_REGS)\n                errors = 0\n            except (ModbusError, serial.SerialException, OSError) as e:\n                errors += 1\n                print(f\"modbus error #{errors}: {e}\", flush=True)\n                now_err = time.monotonic()\n                # Debounced fail-safe: trip only on persistent loss, i.e.\n                # wall-time since last fresh tick exceeds STALE_TIMEOUT_S.\n                # Isolated single misses from light noise (drop/crc <=5%)\n                # give gap ~period+timeout+retry (~120-190ms) < timeout so\n                # no nuisance trip. Persistent loss (70% drop, delay,\n                # burst, stale) is re-probed every ~70ms (timeout+retry),\n                # so gap exceeds 0.40s after 4-5 misses (~350-420ms) and\n                # still meets 500ms OV deadline. No errors>=1 trip.\n                if not trip.active:\n                    if (now_err - last_fresh) > STALE_TIMEOUT_S:\n                        trip.set(True)\n                        print(f\"TRIP: stale/no data for {now_err - last_fresh:.2f}s (errors={errors})\", flush=True)\n                # Retry immediately without full-period sleep to bound overhead:\n                # each retry costs only SERIAL_TIMEOUT_S + ERROR_RETRY_S.\n                time.sleep(ERROR_RETRY_S)\n                continue\n\n            tick = regs[10]\n            now = time.monotonic()\n            if last_tick is None:\n                last_tick = tick\n                last_fresh = now\n                stale = False\n            elif tick != last_tick:\n                # Any change proves freshness (allow jumps >1, 16-bit wrap via !=).\n                last_tick = tick\n                last_fresh = now\n                stale = False\n            else:\n                stale = (now - last_fresh) > STALE_TIMEOUT_S\n\n            cells = regs[0:4]\n            vmax = max(cells)\n            if not trip.active:\n                if vmax >= args.limit_mv:\n                    trip.set(True)\n                    print(f\"TRIP: cell {cells.index(vmax) + 1} at {vmax} mV \"\n                          f\"(limit {args.limit_mv})\", flush=True)\n                elif stale:\n                    trip.set(True)\n                    print(f\"TRIP: stale tick frozen at {tick} for {now - last_fresh:.2f}s\", flush=True)\n            else:\n                # Latched: only release on fresh data showing all cells < rearm.\n                if not stale and vmax < args.rearm_mv:\n                    trip.set(False)\n                    print(f\"released: max cell {vmax} mV\", flush=True)\n\n            now2 = time.monotonic()\n            if now2 - last_print >= 1.0:\n                last_print = now2\n                print(f\"cells={cells} mV  I={to_signed(regs[5]) / 10:.1f} A  \"\n                      f\"T={to_signed(regs[6]) / 10:.1f} C  SOC={regs[7] / 10:.1f}%  \"\n                      f\"tick={regs[10]}  trip={'ON' if trip.active else 'off'}\", flush=True)\n\n            elapsed = time.monotonic() - t0\n            time.sleep(max(0.0, safety_poll_s - elapsed))\n    except KeyboardInterrupt:\n        pass\n    finally:\n        trip.set(False)\n        ser.close()\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n"
+      },
+      "seconds": 0.0
+    },
+    {
+      "agent": "attacker",
+      "tool": "run_scenario",
+      "args": {
+        "drift_mv": 0,
+        "faults": [],
+        "hypothesis": "Healthy link no OV should never trip; checking baseline under failsafe interlock."
+      },
+      "result": {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 0,
+          "charge_a": 10,
+          "timing": "random",
+          "poll_ms": 200
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)",
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.1%  tick=25378  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.3%  tick=25389  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.0 C  SOC=50.4%  tick=25400  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.6%  tick=25411  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=50.8%  tick=25421  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.0 C  SOC=51.0%  tick=25432  trip=off",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.2%  tick=25443  trip=off",
+          "controller: polling /dev/ttyAMA0 @ 9600 every 200 ms, trip at 3650 mV, re-arm below 3550 mV",
+          "controller: safety poll capped to 120 ms (requested 200 ms) to meet 500ms deadline",
+          "modbus error #1: bad CRC in ff 01 03 18 0c d7 0c da 0c dd 0c e0 05 24 00 64 01 2c 02 03 00 e6 00 05 63 76 03 e8 e7",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.0 C  SOC=51.5%  tick=25463  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.0 C  SOC=51.7%  tick=25473  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.0 C  SOC=51.8%  tick=25484  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=52.0%  tick=25495  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.2%  tick=25506  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.4%  tick=25517  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.6%  tick=25527  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.7%  tick=25538  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.9%  tick=25549  trip=off"
+        ],
+        "hypothesis": "Healthy link no OV should never trip; checking baseline under failsafe interlock.",
+        "scenarios_left": 5
+      },
+      "seconds": 18.5
+    },
+    {
+      "agent": "attacker",
+      "tool": "run_scenario",
+      "args": {
+        "drift_mv": 400,
+        "faults": [],
+        "hypothesis": "With failsafe interlock, OV should open interlock within 500ms; testing if legacy HIGH=trip logic still works.",
+        "poll_ms": 200,
+        "timing": "worst_case"
+      },
+      "result": {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 400,
+          "charge_a": 10,
+          "timing": "worst_case",
+          "poll_ms": 200
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)",
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=25852  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.2%  tick=25863  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=25873  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=25884  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=25895  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=25906  trip=off",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=25917  trip=off",
+          "controller: polling /dev/ttyAMA0 @ 9600 every 200 ms, trip at 3650 mV, re-arm below 3550 mV",
+          "controller: safety poll capped to 120 ms (requested 200 ms) to meet 500ms deadline",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=25936  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=25947  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=25958  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=52.0%  tick=25969  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.2%  tick=25980  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.4%  tick=25990  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.5%  tick=26001  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.7%  tick=26012  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.9%  tick=26023  trip=off"
+        ],
+        "hypothesis": "With failsafe interlock, OV should open interlock within 500ms; testing if legacy HIGH=trip logic still works.",
+        "scenarios_left": 4
+      },
+      "seconds": 18.5
+    },
+    {
+      "agent": "attacker",
+      "tool": "run_scenario",
+      "args": {
+        "drift_mv": 0,
+        "faults": [],
+        "hypothesis": "Confirm idle-open failure reproduces at opposite end of deployment range (poll 500ms).",
+        "poll_ms": 500,
+        "timing": "random"
+      },
+      "result": {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 0,
+          "charge_a": 10,
+          "timing": "random",
+          "poll_ms": 500
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)",
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=26394  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=26405  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=26416  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=26427  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=26438  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=51.0%  tick=26448  trip=off",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.2%  tick=26459  trip=off",
+          "controller: polling /dev/ttyAMA0 @ 9600 every 500 ms, trip at 3650 mV, re-arm below 3550 mV",
+          "controller: safety poll capped to 120 ms (requested 500 ms) to meet 500ms deadline",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=26477  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.6%  tick=26487  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=26498  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=52.0%  tick=26509  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.2%  tick=26520  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.4%  tick=26531  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.5%  tick=26541  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.7%  tick=26552  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.9%  tick=26563  trip=off"
+        ],
+        "hypothesis": "Confirm idle-open failure reproduces at opposite end of deployment range (poll 500ms).",
+        "scenarios_left": 3
+      },
+      "seconds": 20.7
+    },
+    {
+      "agent": "attacker",
+      "tool": "run_scenario",
+      "args": {
+        "drift_mv": 0,
+        "faults": [],
+        "hypothesis": "Confirm idle-open persists at fastest poll (50ms), proving inverted logic across full range.",
+        "poll_ms": 50,
+        "timing": "random"
+      },
+      "result": {
+        "scenario": {
+          "faults": [],
+          "drift_mv": 0,
+          "charge_a": 10,
+          "timing": "random",
+          "poll_ms": 50
+        },
+        "result": "FAIL",
+        "failure": "false_trip",
+        "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)",
+        "controller_log": [
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=26944  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=26954  trip=off",
+          "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.4%  tick=26964  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.6%  tick=26974  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.8%  tick=26984  trip=off",
+          "cells=[3286, 3289, 3292, 3295] mV  I=10.0 A  T=30.1 C  SOC=50.9%  tick=26994  trip=off",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.1%  tick=27004  trip=off",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.3%  tick=27014  trip=off",
+          "controller: polling /dev/ttyAMA0 @ 9600 every 50 ms, trip at 3650 mV, re-arm below 3550 mV",
+          "modbus error #1: bad CRC in fe 01 03 18 0c d7 0c da 0c dd 0c e0 05 24 00 64 01 2d 02 03 00 e6 00 05 69 94 03 e8 40",
+          "cells=[3287, 3290, 3293, 3296] mV  I=10.0 A  T=30.1 C  SOC=51.5%  tick=27028  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.7%  tick=27038  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=51.8%  tick=27048  trip=off",
+          "cells=[3288, 3291, 3294, 3297] mV  I=10.0 A  T=30.1 C  SOC=52.0%  tick=27058  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.2%  tick=27068  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.3%  tick=27078  trip=off",
+          "cells=[3289, 3292, 3295, 3298] mV  I=10.0 A  T=30.1 C  SOC=52.5%  tick=27088  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.7%  tick=27098  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=52.8%  tick=27108  trip=off",
+          "cells=[3290, 3293, 3296, 3299] mV  I=10.0 A  T=30.1 C  SOC=53.0%  tick=27118  trip=off"
+        ],
+        "hypothesis": "Confirm idle-open persists at fastest poll (50ms), proving inverted logic across full range.",
+        "scenarios_left": 2
+      },
+      "seconds": 20.8
+    },
+    {
+      "agent": "attacker",
+      "tool": "submit_finding",
+      "args": {
+        "found_failure": true,
+        "rule_broken": "2_no_false_trips",
+        "scenario": {
+          "charge_a": 10,
+          "drift_mv": 0,
+          "faults": [],
+          "poll_ms": 200,
+          "timing": "random"
+        },
+        "summary": "Failsafe-interlock polarity inversion + missing heartbeat causes healthy-idle false trip. Bench now uses failsafe interlock (GPIO23 HIGH=permissive, LOW=trip, GPIO24 must toggle every 250ms; deliberate trip=drive LOW) but controller still implements legacy (TripLine active_high True initial False, trip.set(True)=HIGH on OV, trip=off=LOW at idle, never touches GPIO24). Result: at idle with healthy link cells ~3285-3299mV <3650 and log trip=off, STM32 measures interlock OPEN -> FAIL false_trip 'keeps interlock open at idle (even after restart)'. Reproduced 3x: poll 200, 500, 50ms drift 0 faults [] all FAIL false_trip, plus drift 400 OV run also FAIL same idle-open (never permissive). Controller can never hold permissive: idle LOW is read as trip, and absent heartbeat would open interlock after 250ms even if polarity fixed.",
+        "hardware_evidence": [
+          {
+            "scenario": {
+              "faults": [],
+              "drift_mv": 0,
+              "charge_a": 10,
+              "timing": "random",
+              "poll_ms": 200
+            },
+            "result": "FAIL",
+            "failure": "false_trip",
+            "latency_ms": null,
+            "until_reported_ms": null,
+            "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+          },
+          {
+            "scenario": {
+              "faults": [],
+              "drift_mv": 400,
+              "charge_a": 10,
+              "timing": "worst_case",
+              "poll_ms": 200
+            },
+            "result": "FAIL",
+            "failure": "false_trip",
+            "latency_ms": null,
+            "until_reported_ms": null,
+            "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+          },
+          {
+            "scenario": {
+              "faults": [],
+              "drift_mv": 0,
+              "charge_a": 10,
+              "timing": "random",
+              "poll_ms": 500
+            },
+            "result": "FAIL",
+            "failure": "false_trip",
+            "latency_ms": null,
+            "until_reported_ms": null,
+            "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+          },
+          {
+            "scenario": {
+              "faults": [],
+              "drift_mv": 0,
+              "charge_a": 10,
+              "timing": "random",
+              "poll_ms": 50
+            },
+            "result": "FAIL",
+            "failure": "false_trip",
+            "latency_ms": null,
+            "until_reported_ms": null,
+            "detail": "with a healthy battery and no faults, the controller keeps the interlock open at idle (even after a restart)"
+          }
+        ]
+      },
+      "result": {
+        "received": true
+      },
+      "seconds": 0.0
+    }
+  ],
+  "tokens": 64630,
+  "refused_submissions": []
+}

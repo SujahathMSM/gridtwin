@@ -1,0 +1,196 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -1,9 +1,13 @@
+ #!/usr/bin/env python3
+ """GridTwin-HIL day 1: the energy controller under test (runs on the Raspberry Pi 5).
+ 
+-It polls the battery that the Nucleo emulates over Modbus RTU and pulls the
+-safety-trip line (GPIO23) high as soon as any cell reaches the over-voltage
+-limit. The Nucleo times how long that took.
++Failsafe interlock (energize-to-run): GPIO23 HIGH = permissive (battery
++allowed), LOW = trip (cut/unpowered = trip). GPIO24 is a heartbeat that must
++toggle at least every 250ms or the interlock opens by itself. Deliberate
++trip = drive GPIO23 low.
++
++It polls the battery that the Nucleo emulates over Modbus RTU and drives the
++interlock low as soon as any cell reaches the over-voltage limit.
+ 
+ Usage on the Pi:
+     python3 controller.py                       # defaults: /dev/ttyAMA0, 9600 baud
+@@ -15,6 +19,7 @@
+ import argparse
+ import sys
+ import time
++import threading
+ 
+ import serial  # pip install pyserial
+ 
+@@ -55,6 +60,17 @@
+ # per 500ms even at max poll.
+ ERROR_RETRY_S = 0.02
+ 
++# Failsafe heartbeat: GPIO24 must change level at least every 250ms.
++HEARTBEAT_PIN = 24
++HEARTBEAT_PERIOD_S = 0.10
++
++# Latch robustness: require this many consecutive fresh reads with all cells
++# < rearm before releasing a latched trip, so a single spurious low frame
++# while the real cell is still >= limit can never cause premature release.
++# 3 x 120ms = 360ms release delay still releases promptly after real
++# recovery (baseline lasts seconds) so no carry-over false trip.
++RELEASE_VOTES_N = 3
++
+ 
+ class ModbusError(Exception):
+     pass
+@@ -117,19 +133,65 @@
+ 
+ 
+ class TripLine:
+-    """GPIO23 safety-trip output. Falls back to a dummy when --no-gpio is set."""
++    """Failsafe trip output on GPIO23: HIGH=permissive, LOW=trip.
++
++    active=True means tripped (LOW); active=False means permissive (HIGH).
++    Falls back to a dummy when --no-gpio is set.
++    """
+ 
+     def __init__(self, pin: int, enabled: bool):
+         self._dev = None
+         if enabled:
+             from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere
+-            self._dev = OutputDevice(pin, active_high=True, initial_value=False)
++            # Boot permissive (HIGH) immediately so healthy idle holds closed.
++            self._dev = OutputDevice(pin, active_high=True, initial_value=True)
+         self.active = False
+ 
+     def set(self, on: bool) -> None:
+         self.active = on
+         if self._dev is not None:
+-            self._dev.on() if on else self._dev.off()
++            # Failsafe polarity: trip (on=True) drives LOW, permissive HIGH.
++            self._dev.off() if on else self._dev.on()
++
++
++class Heartbeat:
++    """GPIO24 heartbeat: toggles at least every 250ms while alive.
++
++    Runs in a daemon thread independent of the blocking Modbus poll loop so
++    poll_ms 50-500 plus SERIAL_TIMEOUT_S never starves it. Frozen/killed
++    process halts toggling -> interlock opens by itself.
++    """
++
++    def __init__(self, pin: int, enabled: bool, period_s: float = HEARTBEAT_PERIOD_S):
++        self._dev = None
++        self._stop = None
++        self._thread = None
++        self._period = period_s
++        if enabled:
++            from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere
++            self._dev = OutputDevice(pin, active_high=True, initial_value=False)
++            self._stop = threading.Event()
++            self._thread = threading.Thread(target=self._run, daemon=True)
++            self._thread.start()
++
++    def _run(self) -> None:
++        assert self._stop is not None
++        while not self._stop.is_set():
++            try:
++                if self._dev is not None:
++                    self._dev.toggle()
++            except Exception:
++                pass
++            self._stop.wait(self._period)
++
++    def stop(self) -> None:
++        if self._stop is not None:
++            self._stop.set()
++            try:
++                if self._thread is not None and threading.current_thread() is not self._thread:
++                    self._thread.join(timeout=0.5)
++            except Exception:
++                pass
+ 
+ 
+ def main() -> int:
+@@ -154,6 +216,7 @@
+     safety_poll_s = safety_poll_ms / 1000.0
+ 
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
++    hb = Heartbeat(HEARTBEAT_PIN, enabled=not args.no_gpio)
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+                         timeout=SERIAL_TIMEOUT_S)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+@@ -166,6 +229,7 @@
+     last_print = 0.0
+     last_tick = None
+     last_fresh = time.monotonic()
++    release_votes = 0
+     try:
+         while True:
+             t0 = time.monotonic()
+@@ -187,7 +251,11 @@
+                 if not trip.active:
+                     if (now_err - last_fresh) > STALE_TIMEOUT_S:
+                         trip.set(True)
++                        release_votes = 0
+                         print(f"TRIP: stale/no data for {now_err - last_fresh:.2f}s (errors={errors})", flush=True)
++                else:
++                    # While latched, an error is not fresh low evidence.
++                    release_votes = 0
+                 # Retry immediately without full-period sleep to bound overhead:
+                 # each retry costs only SERIAL_TIMEOUT_S + ERROR_RETRY_S.
+                 time.sleep(ERROR_RETRY_S)
+@@ -212,16 +280,28 @@
+             if not trip.active:
+                 if vmax >= args.limit_mv:
+                     trip.set(True)
++                    release_votes = 0
+                     print(f"TRIP: cell {cells.index(vmax) + 1} at {vmax} mV "
+                           f"(limit {args.limit_mv})", flush=True)
+                 elif stale:
+                     trip.set(True)
++                    release_votes = 0
+                     print(f"TRIP: stale tick frozen at {tick} for {now - last_fresh:.2f}s", flush=True)
++                else:
++                    release_votes = 0
+             else:
+-                # Latched: only release on fresh data showing all cells < rearm.
++                # Latched: only release on sustained fresh data showing all
++                # cells < rearm. Require RELEASE_VOTES_N consecutive fresh
++                # low reads so a single spurious low frame can never cause
++                # premature release while the real cell is still >= limit.
+                 if not stale and vmax < args.rearm_mv:
+-                    trip.set(False)
+-                    print(f"released: max cell {vmax} mV", flush=True)
++                    release_votes += 1
++                    if release_votes >= RELEASE_VOTES_N:
++                        trip.set(False)
++                        release_votes = 0
++                        print(f"released: max cell {vmax} mV", flush=True)
++                else:
++                    release_votes = 0
+ 
+             now2 = time.monotonic()
+             if now2 - last_print >= 1.0:
+@@ -235,8 +315,19 @@
+     except KeyboardInterrupt:
+         pass
+     finally:
+-        trip.set(False)
+-        ser.close()
++        # Fail safe: drive LOW (trip) and stop heartbeat so interlock opens.
++        try:
++            trip.set(True)
++        except Exception:
++            pass
++        try:
++            hb.stop()
++        except Exception:
++            pass
++        try:
++            ser.close()
++        except Exception:
++            pass
+     return 0
+ 
+ 

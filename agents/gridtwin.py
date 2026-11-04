@@ -86,6 +86,8 @@ def on_event(kind: str, d: dict) -> None:
             say("bench", f"{verdict_text(r)}  {short(r.get('scenario', {}), 120)}")
         elif isinstance(r, dict) and "error" in r:
             say("bench", f"error: {r['error']}")
+    elif kind == "api_error":
+        say(who, f"model API failed after retries: {d['error']}")
     elif kind == "thought":
         print(f"{C['dim']}   {short(d['text'].strip().replace(chr(10), ' '), 220)}{C['end']}", flush=True)
 
@@ -284,6 +286,8 @@ def attack(s: Session, backend, budget: int, rnd: int) -> dict | None:
              lambda **kw: check_finding(kw, b), final=True)]
     task = f"Round {rnd}.\n{s.history_text()}\n\nFind a condition under which the controller breaks a safety rule."
     run = run_agent(backend, "attacker", ATTACKER, task, tools, max_turns=budget + 8, on_event=on_event)
+    if run.error and not run.final:
+        return {"found_failure": False, "api_error": run.error, "summary": "attacker stopped: model API error"}
     if run.final and run.final.get("found_failure"):
         run.final["hardware_evidence"] = b.get("fails", [])
     s.save(f"round{rnd}_attacker.json", {"final": run.final, "transcript": run.transcript, "tokens": run.tokens,
@@ -311,6 +315,8 @@ def investigate(s: Session, backend, finding: dict, budget: int, rnd: int) -> di
     task = f"{s.history_text()}\n\nThe attacker reports:\n{json.dumps(finding, indent=2)}"
     run = run_agent(backend, "judge", JUDGE, task, tools, max_turns=budget + 8, on_event=on_event)
     v = run.final
+    if run.error and not v:
+        v = {"reproduced": False, "api_error": run.error, "root_cause": "judge stopped: model API error"}
     if v and v.get("reproduced"):
         # belt and braces: the tool already refused unproven verdicts, check again here
         key = scenario_key(v.get("minimal_scenario") or {})
@@ -662,10 +668,16 @@ def main() -> int:
             print()
             say("round", f"{C['bold']}ROUND {rnd}{C['end']}" + (f"  ({len(s.history)} fix(es) deployed)" if s.history else ""))
             finding = attack(s, attacker_b, args.attack_budget, rnd)
+            if finding and finding.get("api_error"):
+                say("round", "stopping: the attacker could not finish (model API error). Re-run with --start-from.")
+                break
             if not finding or not finding.get("found_failure"):
                 say("round", "the attacker found no new failure within its budget: campaign complete")
                 break
             verdict = investigate(s, judge_b, finding, args.judge_budget, rnd)
+            if verdict and verdict.get("api_error"):
+                say("round", "stopping: the judge could not finish (model API error). Re-run with --start-from.")
+                break
             if not verdict or not verdict.get("reproduced"):
                 say("round", "the judge could not reproduce the finding on hardware: not fixing an unproven failure")
                 s.history.append({"round": rnd, "root_cause": "(not reproduced) " + finding.get("summary", ""),

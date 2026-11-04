@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable
 
-from openai import OpenAI
+from openai import APIError, OpenAI
 
 
 @dataclass
@@ -40,8 +40,9 @@ class Backend:
 
 
 # A campaign runs for an hour: a stuck request must not hang it, and a passing 5xx/429 must not end it.
-# The SDK retries with exponential backoff; each request gets 3 minutes (long reasoning turns).
-CLIENT_OPTS = {"timeout": 180.0, "max_retries": 5}
+# The SDK retries with exponential backoff. If it still fails, run_agent returns with run.error set
+# instead of raising, so one bad request costs one agent turn, not the whole campaign.
+CLIENT_OPTS = {"timeout": 420.0, "max_retries": 2}   # long fixer turns can take several minutes
 
 
 def backend_from_env(role: str = "") -> Backend:
@@ -72,6 +73,7 @@ class AgentRun:
     final_tool: str | None = None
     transcript: list = field(default_factory=list)   # every tool call, for the run log
     tokens: int = 0
+    error: str | None = None                          # set if the model API failed after retries
 
 
 def _call_tool(tool: Tool, raw_args: str) -> tuple[dict, object]:
@@ -89,9 +91,21 @@ def _call_tool(tool: Tool, raw_args: str) -> tuple[dict, object]:
 
 def run_agent(backend: Backend, name: str, instructions: str, task: str, tools: list[Tool],
               max_turns: int = 12, on_event: Callable[[str, dict], None] | None = None) -> AgentRun:
+    """Run one agent to completion. API failures (after the SDK's retries) are caught and
+    reported in run.error; the caller decides what a failed agent means."""
+    run = AgentRun()
+    try:
+        return _run_agent(backend, name, instructions, task, tools, max_turns, on_event, run)
+    except APIError as e:
+        run.error = f"{type(e).__name__}: {str(e)[:300]}"
+        (on_event or (lambda k, d: None))("api_error", {"agent": name, "error": run.error})
+        return run
+
+
+def _run_agent(backend: Backend, name: str, instructions: str, task: str, tools: list[Tool],
+               max_turns: int, on_event, run: AgentRun) -> AgentRun:
     emit = on_event or (lambda kind, data: None)
     by_name = {t.name: t for t in tools}
-    run = AgentRun()
 
     def handle(call_name: str, raw_args: str) -> object:
         tool = by_name.get(call_name)

@@ -1,0 +1,43 @@
+{
+  "final": {
+    "approve": true,
+    "problems": [],
+    "extra_checks": [
+      {
+        "faults": [],
+        "drift_mv": 0,
+        "charge_a": 10,
+        "poll_ms": 200,
+        "timing": "random",
+        "why": "Healthy link must never trip after polarity fix - verifies rule 2"
+      },
+      {
+        "faults": [
+          {
+            "name": "stale",
+            "value": "on"
+          }
+        ],
+        "drift_mv": 400,
+        "charge_a": 10,
+        "poll_ms": 200,
+        "timing": "worst_case",
+        "why": "Frozen tick must still trip within 500ms with new polarity - verifies rule 1 with stale"
+      },
+      {
+        "faults": [
+          {
+            "name": "drop",
+            "value": "70"
+          }
+        ],
+        "drift_mv": 400,
+        "charge_a": 10,
+        "poll_ms": 220,
+        "timing": "worst_case",
+        "why": "Burst loss must meet deadline with 0.40s wall-time + 120ms cap + fast retry - verifies burst handling"
+      }
+    ]
+  },
+  "tokens": 26939
+}

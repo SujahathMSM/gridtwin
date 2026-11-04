@@ -1,0 +1,40 @@
+[
+  {
+    "scenario": {
+      "faults": [
+        {
+          "name": "burst",
+          "value": 2
+        }
+      ],
+      "drift_mv": 400,
+      "charge_a": 10,
+      "timing": "worst_case",
+      "poll_ms": 200
+    },
+    "result": "PASS",
+    "max_cell_mv_real": 3695,
+    "limit_mv": 3650,
+    "deadline_ms": 500,
+    "drift_applied": "after_reply",
+    "latency_ms": 263.8,
+    "until_reported_ms": 230.2,
+    "reaction_ms": 33.6,
+    "modbus_link": {
+      "polls_answered": 30,
+      "replies_dropped": 2,
+      "replies_corrupted": 0
+    },
+    "controller_log": [
+      "cells=[3292, 3295, 3298, 3301] mV  I=10.0 A  T=30.1 C  SOC=54.2%  tick=14785  trip=off",
+      "cells=[3285, 3288, 3291, 3294] mV  I=10.0 A  T=30.1 C  SOC=50.1%  tick=14796  trip=off",
+      "modbus error #1: no reply (timeout)",
+      "modbus error #2: no reply (timeout)",
+      "TRIP: cell 4 at 3694 mV (limit 3650)",
+      "cells=[3285, 3288, 3291, 3694] mV  I=10.0 A  T=30.1 C  SOC=50.3%  tick=14807  trip=ON",
+      "cells=[3286, 3289, 3292, 3695] mV  I=10.0 A  T=30.1 C  SOC=50.5%  tick=14817  trip=ON"
+    ],
+    "elapsed_s": 3.0,
+    "hypothesis": "manual: burst"
+  }
+]

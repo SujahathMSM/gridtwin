@@ -1,0 +1,138 @@
+--- pi/controller.py
++++ pi/controller.py (patched)
+@@ -1,9 +1,10 @@
+ #!/usr/bin/env python3
+ """GridTwin-HIL day 1: the energy controller under test (runs on the Raspberry Pi 5).
+ 
+-It polls the battery that the Nucleo emulates over Modbus RTU and pulls the
+-safety-trip line (GPIO23) high as soon as any cell reaches the over-voltage
+-limit. The Nucleo times how long that took.
++It polls the battery that the Nucleo emulates over Modbus RTU and drives the
++failsafe interlock: GPIO23 HIGH = permissive (battery allowed), LOW = trip.
++GPIO24 is a heartbeat that toggles every 100ms; if it stops the interlock
++opens by itself. Deliberate trip = drive GPIO23 low.
+ 
+ Usage on the Pi:
+     python3 controller.py                       # defaults: /dev/ttyAMA0, 9600 baud
+@@ -15,6 +16,7 @@
+ import argparse
+ import sys
+ import time
++import threading
+ 
+ import serial  # pip install pyserial
+ 
+@@ -55,6 +57,14 @@
+ # per 500ms even at max poll.
+ ERROR_RETRY_S = 0.02
+ 
++# Failsafe interlock: GPIO24 heartbeat must change level at least every
++# 250ms or the interlock opens by itself. Toggle every 100ms in a dedicated
++# thread so blocking Modbus reads (up to 50ms) plus poll 50-500ms never
++# starve it. Daemon thread in same process: SIGSTOP/SIGKILL halts toggling
++# -> hardware opens within 250ms (rule 3).
++HEARTBEAT_PIN = 24
++HEARTBEAT_PERIOD_S = 0.10
++
+ 
+ class ModbusError(Exception):
+     pass
+@@ -117,19 +127,65 @@
+ 
+ 
+ class TripLine:
+-    """GPIO23 safety-trip output. Falls back to a dummy when --no-gpio is set."""
++    """Failsafe trip output on GPIO23: HIGH=permissive, LOW=trip.
++
++    active=True means tripped (LOW); active=False means permissive (HIGH).
++    Falls back to a dummy when --no-gpio is set.
++    """
+ 
+     def __init__(self, pin: int, enabled: bool):
+         self._dev = None
+         if enabled:
+             from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere
+-            self._dev = OutputDevice(pin, active_high=True, initial_value=False)
++            # Boot permissive (HIGH) immediately so healthy idle holds closed.
++            self._dev = OutputDevice(pin, active_high=True, initial_value=True)
+         self.active = False
+ 
+     def set(self, on: bool) -> None:
+         self.active = on
+         if self._dev is not None:
+-            self._dev.on() if on else self._dev.off()
++            # Failsafe polarity: trip (on=True) drives LOW, permissive drives HIGH.
++            self._dev.off() if on else self._dev.on()
++
++
++class Heartbeat:
++    """GPIO24 heartbeat: toggles at least every 250ms while alive.
++
++    Runs in a daemon thread independent of the blocking Modbus poll loop so
++    poll_ms 50-500 plus SERIAL_TIMEOUT_S never starves it. Frozen/killed
++    process halts toggling -> interlock opens by itself.
++    """
++
++    def __init__(self, pin: int, enabled: bool, period_s: float = HEARTBEAT_PERIOD_S):
++        self._dev = None
++        self._stop = None
++        self._thread = None
++        self._period = period_s
++        if enabled:
++            from gpiozero import OutputDevice  # imported here so --no-gpio works anywhere
++            self._dev = OutputDevice(pin, active_high=True, initial_value=False)
++            self._stop = threading.Event()
++            self._thread = threading.Thread(target=self._run, daemon=True)
++            self._thread.start()
++
++    def _run(self) -> None:
++        assert self._stop is not None
++        while not self._stop.is_set():
++            try:
++                if self._dev is not None:
++                    self._dev.toggle()
++            except Exception:
++                pass
++            self._stop.wait(self._period)
++
++    def stop(self) -> None:
++        if self._stop is not None:
++            self._stop.set()
++            try:
++                if self._thread is not None and threading.current_thread() is not self._thread:
++                    self._thread.join(timeout=0.5)
++            except Exception:
++                pass
+ 
+ 
+ def main() -> int:
+@@ -154,6 +210,7 @@
+     safety_poll_s = safety_poll_ms / 1000.0
+ 
+     trip = TripLine(args.trip_pin, enabled=not args.no_gpio)
++    hb = Heartbeat(HEARTBEAT_PIN, enabled=not args.no_gpio)
+     ser = serial.Serial(args.port, args.baud, bytesize=8, parity="N", stopbits=1,
+                         timeout=SERIAL_TIMEOUT_S)
+     print(f"controller: polling {args.port} @ {args.baud} every {args.poll_ms} ms, "
+@@ -235,8 +292,19 @@
+     except KeyboardInterrupt:
+         pass
+     finally:
+-        trip.set(False)
+-        ser.close()
++        # Fail safe: drive LOW (trip) and stop heartbeat so interlock opens.
++        try:
++            trip.set(True)
++        except Exception:
++            pass
++        try:
++            hb.stop()
++        except Exception:
++            pass
++        try:
++            ser.close()
++        except Exception:
++            pass
+     return 0
+ 
+ 
